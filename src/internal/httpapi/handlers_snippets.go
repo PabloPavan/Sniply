@@ -44,7 +44,7 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Language = "txt"
 	}
 	if req.Visibility == "" {
-		req.Visibility = snippets.VisibilityPublic // para testar no Insomnia
+		req.Visibility = snippets.VisibilityPublic
 	}
 
 	s := &snippets.Snippet{
@@ -54,12 +54,15 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Language:   req.Language,
 		Tags:       req.Tags,
 		Visibility: req.Visibility,
-
-		// Quando entrar auth, isso vem do token.
-		CreatorID: "usr_demo",
+		CreatorID:  "usr_demo",
 	}
 
 	if err := h.Repo.Create(r.Context(), s); err != nil {
+		if snippets.IsUniqueViolationID(err) {
+			http.Error(w, "snippet already exists", http.StatusConflict)
+			return
+		}
+
 		http.Error(w, "failed to create snippet", http.StatusInternalServerError)
 		return
 	}
@@ -70,8 +73,7 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SnippetsHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	id = strings.TrimSpace(id)
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
@@ -79,7 +81,11 @@ func (h *SnippetsHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	s, err := h.Repo.GetByIDPublicOnly(r.Context(), id)
 	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
+		if snippets.IsNotFound(err) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "failed to load snippet", http.StatusInternalServerError)
 		return
 	}
 
@@ -95,7 +101,6 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 	limit := 100
 	offset := 0
 	if l := strings.TrimSpace(r.URL.Query().Get("limit")); l != "" {
-		// ignore parse error and keep default
 		if v, err := strconv.Atoi(l); err == nil && v > 0 {
 			limit = v
 		}
@@ -125,8 +130,7 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	id = strings.TrimSpace(id)
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
@@ -141,6 +145,7 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	req.Name = strings.TrimSpace(req.Name)
 	req.Content = strings.TrimSpace(req.Content)
 	req.Language = strings.TrimSpace(req.Language)
+
 	if req.Name == "" || req.Content == "" {
 		http.Error(w, "name and content are required", http.StatusBadRequest)
 		return
@@ -163,6 +168,10 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Repo.Update(r.Context(), s); err != nil {
+		if snippets.IsNotFound(err) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, "failed to update snippet", http.StatusInternalServerError)
 		return
 	}
@@ -172,14 +181,17 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SnippetsHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	id = strings.TrimSpace(id)
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
 	}
 
 	if err := h.Repo.Delete(r.Context(), id); err != nil {
+		if snippets.IsNotFound(err) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 		http.Error(w, "failed to delete snippet", http.StatusInternalServerError)
 		return
 	}
