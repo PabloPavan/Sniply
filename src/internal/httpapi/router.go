@@ -3,6 +3,7 @@ package httpapi
 import (
 	"net/http"
 
+	"github.com/PabloPavan/Sniply/internal/auth"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -11,6 +12,7 @@ type App struct {
 	Health   *HealthHandler
 	Snippets *SnippetsHandler
 	Users    *UsersHandler
+	Auth     *AuthHandler
 }
 
 func NewRouter(app *App) http.Handler {
@@ -24,20 +26,45 @@ func NewRouter(app *App) http.Handler {
 
 	r.Route("/v1", func(r chi.Router) {
 
+		// Auth endpoints
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/login", app.Auth.Login)
+		})
+
 		r.Route("/snippets", func(r chi.Router) {
+			// Public
 			r.Get("/", app.Snippets.List)
-			r.Post("/", app.Snippets.Create)
 			r.Get("/{id}", app.Snippets.GetByID)
-			r.Put("/{id}", app.Snippets.Update)
-			r.Delete("/{id}", app.Snippets.Delete)
+
+			// Protected
+			r.Group(func(r chi.Router) {
+				r.Use(auth.Middleware(app.Auth.Auth))
+				r.Post("/", app.Snippets.Create)
+				r.Put("/{id}", app.Snippets.Update)
+				r.Delete("/{id}", app.Snippets.Delete)
+			})
 		})
 
 		r.Route("/users", func(r chi.Router) {
+			// Public
 			r.Post("/", app.Users.Create)
-			r.Get("/", app.Users.List)
-			r.Put("/{id}", app.Users.Update)
-			r.Delete("/{id}", app.Users.Delete)
+
+			// Protected
+			r.Group(func(r chi.Router) {
+				r.Use(auth.Middleware(app.Auth.Auth))
+
+				// Self endpoints
+				r.Get("/me", app.Users.Me)
+				r.Put("/me", app.Users.UpdateMe)
+				r.Delete("/me", app.Users.DeleteMe)
+
+				// Admin endpoints
+				r.Get("/", app.Users.List)
+				r.Put("/{id}", app.Users.Update)
+				r.Delete("/{id}", app.Users.Delete)
+			})
 		})
+
 	})
 	return r
 }
