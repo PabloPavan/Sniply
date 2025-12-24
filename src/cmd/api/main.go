@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/PabloPavan/Sniply/internal"
+	"github.com/PabloPavan/Sniply/internal/auth"
 	"github.com/PabloPavan/Sniply/internal/db"
 	"github.com/PabloPavan/Sniply/internal/httpapi"
 	"github.com/PabloPavan/Sniply/internal/snippets"
@@ -16,6 +17,7 @@ import (
 func main() {
 	port := internal.Env("APP_PORT", "8080")
 	databaseURL := internal.MustEnv("DATABASE_URL")
+	jwtSecret := internal.MustEnv("JWT_SECRET")
 
 	ctx := context.Background()
 
@@ -29,10 +31,18 @@ func main() {
 	snRepo := snippets.NewRepository(dbBase)
 	usrRepo := users.NewRepository(dbBase)
 
+	authSvc := &auth.Service{
+		Secret:    []byte(jwtSecret),
+		Issuer:    "sniply-api",
+		Audience:  "sniply-client",
+		AccessTTL: 20 * time.Minute,
+	}
+
 	app := &httpapi.App{
 		Health:   &httpapi.HealthHandler{DB: d.Pool},
 		Snippets: &httpapi.SnippetsHandler{Repo: snRepo},
 		Users:    &httpapi.UsersHandler{Repo: usrRepo},
+		Auth:     &httpapi.AuthHandler{Users: usrRepo, Auth: authSvc},
 	}
 
 	srv := &http.Server{
