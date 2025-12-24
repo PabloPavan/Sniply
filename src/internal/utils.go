@@ -3,9 +3,12 @@ package internal
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"log"
 	"os"
 )
+
+var ErrNotFound = errors.New("not found")
 
 func Env(key, def string) string {
 	v := os.Getenv(key)
