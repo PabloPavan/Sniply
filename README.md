@@ -191,6 +191,49 @@ curl 'http://localhost:8080/v1/snippets?q=hello&creator=usr_demo&limit=20'
 
 ---
 
+### Atualizar snippet (Update)
+
+```
+PUT /v1/snippets/{id}
+```
+
+Body (mesmo formato do create):
+```json
+{
+  "name": "Exemplo atualizado",
+  "content": "print('hello world')",
+  "language": "python",
+  "tags": ["demo","edit"],
+  "visibility": "public"
+}
+```
+
+Resposta: `200 OK` com o recurso atualizado (JSON).
+
+Exemplo:
+```bash
+curl -X PUT http://localhost:8080/v1/snippets/snp_abc123 \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Novo","content":"x","language":"txt"}'
+```
+
+---
+
+### Excluir snippet (Delete)
+
+```
+DELETE /v1/snippets/{id}
+```
+
+Resposta: `204 No Content` em caso de sucesso.
+
+Exemplo:
+```bash
+curl -X DELETE http://localhost:8080/v1/snippets/snp_abc123
+```
+
+---
+
 ## Autenticação (Planejada)
 
 - JWT Bearer Token
