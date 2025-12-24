@@ -39,7 +39,7 @@ const (
 		RETURNING updated_at;`
 
 	sqlSnippetDelete = `DELETE FROM snippets 
-		WHERE id = $1;`
+		WHERE id = $1 AND creator_id = $2;`
 )
 
 func (r *Repository) Create(ctx context.Context, s *Snippet) error {
@@ -167,11 +167,11 @@ func (r *Repository) Update(ctx context.Context, s *Snippet) error {
 	).Scan(&s.UpdatedAt)
 }
 
-func (r *Repository) Delete(ctx context.Context, id string) error {
+func (r *Repository) Delete(ctx context.Context, id string, creatorID string) error {
 	ctx, cancel := r.base.WithTimeout(ctx)
 	defer cancel()
 
-	tag, err := r.base.Q().Exec(ctx, sqlSnippetDelete, id)
+	tag, err := r.base.Q().Exec(ctx, sqlSnippetDelete, id, creatorID)
 
 	if err != nil {
 		return err
@@ -180,6 +180,6 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 	if tag.RowsAffected() == 0 {
 		return internal.ErrNotFound
 	}
-	
+
 	return nil
 }

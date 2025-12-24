@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/PabloPavan/Sniply/internal"
+	"github.com/PabloPavan/Sniply/internal/auth"
 	"github.com/PabloPavan/Sniply/internal/snippets"
 )
 
@@ -18,7 +19,7 @@ type SnippetsRepo interface {
 	GetByIDPublicOnly(ctx context.Context, id string) (*snippets.Snippet, error)
 	List(ctx context.Context, f snippets.SnippetFilter) ([]*snippets.Snippet, error)
 	Update(ctx context.Context, s *snippets.Snippet) error
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string, creatorID string) error
 }
 
 type SnippetsHandler struct {
@@ -26,6 +27,12 @@ type SnippetsHandler struct {
 }
 
 func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
+	creatorID, ok := auth.UserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req snippets.CreateSnippetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
@@ -54,7 +61,7 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Language:   req.Language,
 		Tags:       req.Tags,
 		Visibility: req.Visibility,
-		CreatorID:  "usr_demo",
+		CreatorID:  creatorID,
 	}
 
 	if err := h.Repo.Create(r.Context(), s); err != nil {
@@ -130,6 +137,12 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
+	creatorID, ok := auth.UserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
@@ -164,7 +177,7 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Language:   req.Language,
 		Tags:       req.Tags,
 		Visibility: req.Visibility,
-		CreatorID:  "usr_demo",
+		CreatorID:  creatorID,
 	}
 
 	if err := h.Repo.Update(r.Context(), s); err != nil {
@@ -181,13 +194,19 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SnippetsHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	creatorID, ok := auth.UserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	id := strings.TrimSpace(chi.URLParam(r, "id"))
 	if id == "" {
 		http.Error(w, "id is required", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.Repo.Delete(r.Context(), id); err != nil {
+	if err := h.Repo.Delete(r.Context(), id, creatorID); err != nil {
 		if snippets.IsNotFound(err) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
