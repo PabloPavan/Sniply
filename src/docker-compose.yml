@@ -1,24 +1,24 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: snippet_db
+    container_name: sniply_db
     environment:
-      POSTGRES_DB: snippet
-      POSTGRES_USER: snippet
-      POSTGRES_PASSWORD: snippet
+      POSTGRES_DB: sniply
+      POSTGRES_USER: sniply
+      POSTGRES_PASSWORD: sniply
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U snippet -d snippet"]
+      test: ["CMD-SHELL", "pg_isready -U sniply -d sniply"]
       interval: 3s
       timeout: 3s
       retries: 20
 
   migrate:
     image: migrate/migrate:v4.17.1
-    container_name: snippet_migrate
+    container_name: sniply_migrate
     depends_on:
       db:
         condition: service_healthy
@@ -26,18 +26,18 @@ services:
       - ./migrations:/migrations:ro
     entrypoint: ["/migrate"]
     command:
-      - "-path=/migrations"
-      - "-database=postgres://snippet:snippet@db:5432/snippet?sslmode=disable"
-      - "version"
+    - "-source=file:///migrations"
+    - "-database=postgres://sniply:sniply@db:5432/sniply?sslmode=disable"
+    - "version"
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: snippet_api
+    container_name: sniply_api
     environment:
       APP_PORT: "8080"
-      DATABASE_URL: "postgres://snippet:snippet@db:5432/snippet?sslmode=disable"
+      DATABASE_URL: "postgres://sniply:sniply@db:5432/sniply?sslmode=disable"
     ports:
       - "8080:8080"
     depends_on:
