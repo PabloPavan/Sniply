@@ -15,6 +15,7 @@ import (
 type SnippetsRepo interface {
 	Create(ctx context.Context, s *snippets.Snippet) error
 	GetByIDPublicOnly(ctx context.Context, id string) (*snippets.Snippet, error)
+	ListAll(ctx context.Context) ([]*snippets.Snippet, error)
 }
 
 type SnippetsHandler struct {
@@ -81,4 +82,19 @@ func (h *SnippetsHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(s)
+}
+
+func (h *SnippetsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
+	s, err := h.Repo.ListAll(r.Context())
+	if err != nil {
+		http.Error(w, "failed to list snippets", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
+}
+
+func (h *SnippetsHandler) Search(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "not implemented", http.StatusNotImplemented)
 }

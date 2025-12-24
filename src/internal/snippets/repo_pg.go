@@ -69,3 +69,45 @@ LIMIT 1;
 	s.Visibility = Visibility(visibility)
 	return &s, nil
 }
+
+func (r *RepoPG) ListAll(ctx context.Context) ([]*Snippet, error) {
+	const q = `
+SELECT id, name, content, language, tags, visibility, creator_id, created_at, updated_at
+FROM snippets
+ORDER BY created_at DESC
+LIMIT 100;
+`
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	rows, err := r.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snippets []*Snippet
+	for rows.Next() {
+		var s Snippet
+		var visibility string
+		if err := rows.Scan(
+			&s.ID,
+			&s.Name,
+			&s.Content,
+			&s.Language,
+			&s.Tags,
+			&visibility,
+			&s.CreatorID,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		s.Visibility = Visibility(visibility)
+		snippets = append(snippets, &s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return snippets, nil
+}

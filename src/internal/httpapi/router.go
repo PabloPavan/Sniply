@@ -25,6 +25,7 @@ func NewRouter(app *App) http.Handler {
 		r.Route("/snippets", func(r chi.Router) {
 			r.Post("/", app.Snippets.Create)
 			r.Get("/{id}", app.Snippets.GetByID)
+			r.Get("/", app.Snippets.ListAll)
 		})
 	})
 
