@@ -26,6 +26,8 @@ func NewRouter(app *App) http.Handler {
 			r.Get("/", app.Snippets.List)
 			r.Post("/", app.Snippets.Create)
 			r.Get("/{id}", app.Snippets.GetByID)
+			r.Put("/{id}", app.Snippets.Update)
+			r.Delete("/{id}", app.Snippets.Delete)
 		})
 	})
 

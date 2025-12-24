@@ -143,3 +143,32 @@ LIMIT %d OFFSET %d;`, strings.Join(where, " AND "), limit, offset)
 	}
 	return snippets, nil
 }
+
+func (r *RepoPG) Update(ctx context.Context, s *Snippet) error {
+	const q = `
+UPDATE snippets
+SET name = $1, content = $2, language = $3, tags = $4, visibility = $5, updated_at = now()
+WHERE id = $6
+RETURNING updated_at;
+`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	return r.pool.QueryRow(ctx, q,
+		s.Name,
+		s.Content,
+		s.Language,
+		s.Tags,
+		string(s.Visibility),
+		s.ID,
+	).Scan(&s.UpdatedAt)
+}
+
+func (r *RepoPG) Delete(ctx context.Context, id string) error {
+	const q = `DELETE FROM snippets WHERE id = $1;`
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	_, err := r.pool.Exec(ctx, q, id)
+	return err
+}

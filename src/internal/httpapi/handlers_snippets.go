@@ -17,6 +17,8 @@ type SnippetsRepo interface {
 	Create(ctx context.Context, s *snippets.Snippet) error
 	GetByIDPublicOnly(ctx context.Context, id string) (*snippets.Snippet, error)
 	List(ctx context.Context, f snippets.SnippetFilter) ([]*snippets.Snippet, error)
+	Update(ctx context.Context, s *snippets.Snippet) error
+	Delete(ctx context.Context, id string) error
 }
 
 type SnippetsHandler struct {
@@ -120,4 +122,67 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(s)
+}
+
+func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	id = strings.TrimSpace(id)
+	if id == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	var req snippets.CreateSnippetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	req.Content = strings.TrimSpace(req.Content)
+	req.Language = strings.TrimSpace(req.Language)
+	if req.Name == "" || req.Content == "" {
+		http.Error(w, "name and content are required", http.StatusBadRequest)
+		return
+	}
+	if req.Language == "" {
+		req.Language = "txt"
+	}
+	if req.Visibility == "" {
+		req.Visibility = snippets.VisibilityPublic
+	}
+
+	s := &snippets.Snippet{
+		ID:         id,
+		Name:       req.Name,
+		Content:    req.Content,
+		Language:   req.Language,
+		Tags:       req.Tags,
+		Visibility: req.Visibility,
+		CreatorID:  "usr_demo",
+	}
+
+	if err := h.Repo.Update(r.Context(), s); err != nil {
+		http.Error(w, "failed to update snippet", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(s)
+}
+
+func (h *SnippetsHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	id = strings.TrimSpace(id)
+	if id == "" {
+		http.Error(w, "id is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.Repo.Delete(r.Context(), id); err != nil {
+		http.Error(w, "failed to delete snippet", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
