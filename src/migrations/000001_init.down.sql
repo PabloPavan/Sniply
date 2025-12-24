@@ -6,6 +6,8 @@ DROP INDEX IF EXISTS idx_snippets_creator_updated;
 
 DROP TRIGGER IF EXISTS trg_snippets_updated_at ON snippets;
 DROP FUNCTION IF EXISTS set_updated_at();
+DROP TRIGGER IF EXISTS trg_snippets_search_tsv ON snippets;
+DROP FUNCTION IF EXISTS snippets_set_search_tsv();
 
 DROP TABLE IF EXISTS snippets;
 DROP TABLE IF EXISTS users;

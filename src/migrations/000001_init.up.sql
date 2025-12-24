@@ -9,7 +9,7 @@ BEGIN
   END IF;
 END$$;
 
--- Usuários (MVP)
+-- Usuários
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,
   email         TEXT UNIQUE NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Snippets (MVP)
+-- Snippets
 CREATE TABLE IF NOT EXISTS snippets (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS snippets (
   visibility  snippet_visibility NOT NULL DEFAULT 'private',
   creator_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  search_tsv  TSVECTOR
 );
 
 -- Trigger para updated_at
@@ -38,6 +39,27 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION snippets_set_search_tsv()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_tsv :=
+    to_tsvector(
+      'simple',
+      coalesce(NEW.name,'') || ' ' ||
+      coalesce(NEW.content,'') || ' ' ||
+      array_to_string(NEW.tags,' ')
+    );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_snippets_search_tsv ON snippets;
+CREATE TRIGGER trg_snippets_search_tsv
+BEFORE INSERT OR UPDATE OF name, content, tags ON snippets
+FOR EACH ROW
+EXECUTE FUNCTION snippets_set_search_tsv();
+
 
 DROP TRIGGER IF EXISTS trg_snippets_updated_at ON snippets;
 CREATE TRIGGER trg_snippets_updated_at
@@ -61,15 +83,9 @@ CREATE INDEX IF NOT EXISTS idx_snippets_name_trgm
 
 -- Full-text search (conteúdo + nome + tags)
 CREATE INDEX IF NOT EXISTS idx_snippets_fts
-  ON snippets USING GIN (
-    to_tsvector(
-      'simple',
-      coalesce(name,'') || ' ' ||
-      coalesce(content,'') || ' ' ||
-      array_to_string(tags,' ')
-    )
-  );
+  ON snippets USING GIN (search_tsv);
 
+-- Usuário demo
 INSERT INTO users (id, email, password_hash)
 VALUES ('usr_demo', 'demo@local', 'x')
 ON CONFLICT (id) DO NOTHING;
