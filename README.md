@@ -123,9 +123,9 @@ docker compose up -d db
 
 ### Rodar migrations
 
-```
+```bash
 docker compose run --rm migrate \
-  -path=/migrations \
+  -source file:///migrations \
   -database=postgres://snippet:snippet@db:5432/snippet?sslmode=disable \
   up
 ```
@@ -172,6 +172,22 @@ GET /v1/snippets/{id}
 ```
 
 Somente snippets públicos são retornados no MVP atual.
+
+### Listar snippets (ListAll)
+
+```
+GET /v1/snippets
+```
+
+Suporta filtros via query params (implementação no handler):
+- `q` — termo de busca (full-text / fuzzy)
+- `creator` — `creator_id` para filtrar snippets por criador
+- `limit`, `offset` — paginação
+
+Exemplo:
+```bash
+curl 'http://localhost:8080/v1/snippets?q=hello&creator=usr_demo&limit=20'
+```
 
 ---
 

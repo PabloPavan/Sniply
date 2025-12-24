@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -15,7 +16,7 @@ import (
 type SnippetsRepo interface {
 	Create(ctx context.Context, s *snippets.Snippet) error
 	GetByIDPublicOnly(ctx context.Context, id string) (*snippets.Snippet, error)
-	ListAll(ctx context.Context) ([]*snippets.Snippet, error)
+	List(ctx context.Context, f snippets.SnippetFilter) ([]*snippets.Snippet, error)
 }
 
 type SnippetsHandler struct {
@@ -84,8 +85,34 @@ func (h *SnippetsHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(s)
 }
 
-func (h *SnippetsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
-	s, err := h.Repo.ListAll(r.Context())
+func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	creator := strings.TrimSpace(r.URL.Query().Get("creator"))
+	language := strings.TrimSpace(r.URL.Query().Get("language"))
+
+	limit := 100
+	offset := 0
+	if l := strings.TrimSpace(r.URL.Query().Get("limit")); l != "" {
+		// ignore parse error and keep default
+		if v, err := strconv.Atoi(l); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	if o := strings.TrimSpace(r.URL.Query().Get("offset")); o != "" {
+		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
+			offset = v
+		}
+	}
+
+	f := snippets.SnippetFilter{
+		Query:    q,
+		Creator:  creator,
+		Language: language,
+		Limit:    limit,
+		Offset:   offset,
+	}
+
+	s, err := h.Repo.List(r.Context(), f)
 	if err != nil {
 		http.Error(w, "failed to list snippets", http.StatusInternalServerError)
 		return
@@ -93,8 +120,4 @@ func (h *SnippetsHandler) ListAll(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(s)
-}
-
-func (h *SnippetsHandler) Search(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
 }

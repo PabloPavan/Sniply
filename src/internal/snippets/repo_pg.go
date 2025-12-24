@@ -3,6 +3,8 @@ package snippets
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -70,17 +72,47 @@ LIMIT 1;
 	return &s, nil
 }
 
-func (r *RepoPG) ListAll(ctx context.Context) ([]*Snippet, error) {
-	const q = `
-SELECT id, name, content, language, tags, visibility, creator_id, created_at, updated_at
+func (r *RepoPG) List(ctx context.Context, f SnippetFilter) ([]*Snippet, error) {
+	where := []string{"visibility = 'public'"}
+	args := []interface{}{}
+	argPos := 1
+
+	if f.Creator != "" {
+		where = append(where, fmt.Sprintf("creator_id = $%d", argPos))
+		args = append(args, f.Creator)
+		argPos++
+	}
+	if f.Language != "" {
+		where = append(where, fmt.Sprintf("language = $%d", argPos))
+		args = append(args, f.Language)
+		argPos++
+	}
+	if f.Query != "" {
+		where = append(where, fmt.Sprintf("(name ILIKE $%d OR content ILIKE $%d)", argPos, argPos+1))
+		qstr := "%" + strings.ReplaceAll(f.Query, "%", "\\%") + "%"
+		args = append(args, qstr, qstr)
+		argPos += 2
+	}
+
+	limit := 100
+	if f.Limit > 0 && f.Limit <= 1000 {
+		limit = f.Limit
+	}
+	offset := 0
+	if f.Offset > 0 {
+		offset = f.Offset
+	}
+
+	query := fmt.Sprintf(`SELECT id, name, content, language, tags, visibility, creator_id, created_at, updated_at
 FROM snippets
+WHERE %s
 ORDER BY created_at DESC
-LIMIT 100;
-`
+LIMIT %d OFFSET %d;`, strings.Join(where, " AND "), limit, offset)
+
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	rows, err := r.pool.Query(ctx, q)
+	rows, err := r.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

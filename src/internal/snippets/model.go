@@ -31,3 +31,11 @@ type CreateSnippetRequest struct {
 	Tags       []string   `json:"tags"`
 	Visibility Visibility `json:"visibility"`
 }
+
+type SnippetFilter struct {
+	Query    string // full-text or simple substring search
+	Creator  string // creator_id
+	Language string
+	Limit    int
+	Offset   int
+}
