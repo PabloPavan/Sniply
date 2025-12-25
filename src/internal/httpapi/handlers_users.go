@@ -46,7 +46,7 @@ func (h *UsersHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	hasher := h.PasswordHasher
 	if hasher == nil {
-		hasher = defaultPasswordHasher
+		hasher = internal.DefaultPasswordHasher
 	}
 
 	hash, err := hasher(req.Password)
@@ -256,7 +256,7 @@ func (h *UsersHandler) updateUserByID(w http.ResponseWriter, r *http.Request, ta
 
 	hasher := h.PasswordHasher
 	if hasher == nil {
-		hasher = defaultPasswordHasher
+		hasher = internal.DefaultPasswordHasher
 	}
 
 	hash, err := hasher(raw.Password)
