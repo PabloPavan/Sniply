@@ -9,11 +9,20 @@ BEGIN
   END IF;
 END$$;
 
+-- Enum de papel do usuário
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('user', 'admin');
+  END IF;
+END$$;
+
 -- Usuários
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,
   email         TEXT UNIQUE NOT NULL,
   password_hash TEXT NOT NULL,
+  role          user_role NOT NULL DEFAULT 'user',
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -28,7 +37,13 @@ CREATE TABLE IF NOT EXISTS snippets (
   creator_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  search_tsv  TSVECTOR
+  search_tsv  TSVECTOR GENERATED ALWAYS AS (
+    to_tsvector(
+      'simple',
+      coalesce(name,'') || ' ' ||
+      coalesce(content,'')
+    ) || array_to_tsvector(tags)
+  ) STORED
 );
 
 -- Trigger para updated_at
@@ -39,27 +54,6 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION snippets_set_search_tsv()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.search_tsv :=
-    to_tsvector(
-      'simple',
-      coalesce(NEW.name,'') || ' ' ||
-      coalesce(NEW.content,'') || ' ' ||
-      array_to_string(NEW.tags,' ')
-    );
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-DROP TRIGGER IF EXISTS trg_snippets_search_tsv ON snippets;
-CREATE TRIGGER trg_snippets_search_tsv
-BEFORE INSERT OR UPDATE OF name, content, tags ON snippets
-FOR EACH ROW
-EXECUTE FUNCTION snippets_set_search_tsv();
-
 
 DROP TRIGGER IF EXISTS trg_snippets_updated_at ON snippets;
 CREATE TRIGGER trg_snippets_updated_at
@@ -86,6 +80,6 @@ CREATE INDEX IF NOT EXISTS idx_snippets_fts
   ON snippets USING GIN (search_tsv);
 
 -- Usuário demo
-INSERT INTO users (id, email, password_hash)
-VALUES ('usr_demo', 'demo@local', 'x')
+INSERT INTO users (id, email, password_hash, role)
+VALUES ('usr_demo', 'demo@local', '', 'admin')
 ON CONFLICT (id) DO NOTHING;

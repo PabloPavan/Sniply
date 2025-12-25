@@ -98,10 +98,10 @@ func (r *Repository) List(ctx context.Context, f SnippetFilter) ([]*Snippet, err
 		argPos++
 	}
 	if f.Query != "" {
-		where = append(where, fmt.Sprintf("(name ILIKE $%d OR content ILIKE $%d)", argPos, argPos+1))
-		qstr := "%" + strings.ReplaceAll(f.Query, "%", "\\%") + "%"
-		args = append(args, qstr, qstr)
-		argPos += 2
+		where = append(where, fmt.Sprintf("((search_tsv @@ plainto_tsquery('simple', $%d)) OR (name %% $%d) OR (similarity(name, $%d) > 0.25))", argPos, argPos, argPos))
+		qstr := strings.TrimSpace(f.Query)
+		args = append(args, qstr)
+		argPos += 1
 	}
 
 	limit := 100
