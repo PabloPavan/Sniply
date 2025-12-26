@@ -35,6 +35,35 @@ docker compose run --rm migrate \
 docker compose up -d api
 ```
 
+4. Start the API debug:
+```bash
+docker compose --profile debug up --build api-debug
+```
+5. setup.json for vscode:
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Attach Go (Delve remote)",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "host": "127.0.0.1",
+      "port": 40000,
+      "apiVersion": 2,
+      "cwd": "${workspaceFolder}/src",
+      "substitutePath": [
+        {
+          "from": "${workspaceFolder}/src",
+          "to": "/app"
+        }
+      ]
+    }
+  ]
+}
+```
+
 Run the API locally (without Docker)
 1. Ensure PostgreSQL is running and reachable. Use the same DB from Docker or a local Postgres instance.
 2. Export environment variables (example):
