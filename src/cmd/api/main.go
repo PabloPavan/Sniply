@@ -40,7 +40,7 @@ func main() {
 
 	app := &httpapi.App{
 		Health:   &httpapi.HealthHandler{DB: d.Pool},
-		Snippets: &httpapi.SnippetsHandler{Repo: snRepo},
+		Snippets: &httpapi.SnippetsHandler{Repo: snRepo, RepoUser: usrRepo},
 		Users:    &httpapi.UsersHandler{Repo: usrRepo},
 		Auth:     &httpapi.AuthHandler{Users: usrRepo, Auth: authSvc},
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/PabloPavan/Sniply/internal"
 	"github.com/PabloPavan/Sniply/internal/auth"
 	"github.com/PabloPavan/Sniply/internal/snippets"
+	"github.com/PabloPavan/Sniply/internal/users"
 )
 
 type SnippetsRepo interface {
@@ -23,7 +24,8 @@ type SnippetsRepo interface {
 }
 
 type SnippetsHandler struct {
-	Repo SnippetsRepo
+	Repo     SnippetsRepo
+	RepoUser UsersRepo
 }
 
 // Create Snippet
@@ -150,6 +152,18 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 	var tags []string
 	if tag != "" {
 		tags = []string{tag}
+	}
+
+	if creator != "" {
+		_, err := h.RepoUser.GetByID(r.Context(), creator)
+		if err != nil {
+			if users.IsNotFound(err) {
+				http.Error(w, "creator not found", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "failed to load creator", http.StatusInternalServerError)
+			return
+		}
 	}
 
 	visibilityStr := strings.TrimSpace(r.URL.Query().Get("visibility"))
