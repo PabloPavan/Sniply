@@ -45,6 +45,26 @@ services:
       migrate:
         condition: service_started
 
+  api-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: debug
+    container_name: sniply_api_debug
+    profiles: ["debug"]
+    environment:
+      APP_PORT: "8080"
+      DATABASE_URL: "postgres://sniply:sniply@db:5432/sniply?sslmode=disable"
+      JWT_SECRET: "change_me_in_prod_please_use_a_long_random_secret"
+    ports:
+      - "8080:8080"
+      - "40000:40000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_started
+
 volumes:
   pgdata:
  
