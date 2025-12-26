@@ -173,12 +173,12 @@ curl -v -X DELETE http://localhost:8080/v1/users/me \
 curl -v -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:8080/v1/users
 ```
 
-# Snippets: list / search
+# Snippets: list / search (protected)
 ```bash
 curl -v 'http://localhost:8080/v1/snippets?q=example&limit=10'
 ```
 
-# Snippets: get by id (public)
+# Snippets: get by id (protected)
 ```bash
 curl -v http://localhost:8080/v1/snippets/snp_abc123
 ```
