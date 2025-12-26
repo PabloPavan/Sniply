@@ -64,6 +64,26 @@ docker compose --profile debug up --build api-debug
 }
 ```
 
+OpenAPI (automatic with swaggo)
+1. Install swag CLI:
+
+```bash
+go install github.com/swaggo/swag/cmd/swag@latest
+```
+
+2. Generate docs (writes to `src/docs`):
+
+```bash
+cd src
+go generate ./...
+```
+
+3. Start the API and open the Swagger UI:
+
+```
+http://localhost:8080/swagger/index.html
+```
+
 Run the API locally (without Docker)
 1. Ensure PostgreSQL is running and reachable. Use the same DB from Docker or a local Postgres instance.
 2. Export environment variables (example):
@@ -204,4 +224,3 @@ curl -v -X PUT http://localhost:8080/v1/snippets/snp_abc123 \
 curl -v -X DELETE http://localhost:8080/v1/snippets/snp_abc123 \
   -H "Authorization: Bearer $TOKEN"
 ```
-

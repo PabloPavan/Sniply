@@ -109,6 +109,12 @@ docker compose up -d api
 GET /health
 ```
 
+### OpenAPI (Swagger UI)
+
+```
+GET /swagger/index.html
+```
+
 ### Logar
 
 Auth
