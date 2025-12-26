@@ -194,7 +194,6 @@ Exemplo de body para o criar
 ## Contribuindo e próximos passos
 -----------------------------
 
-- Adicionar OpenAPI/Swagger
 - Tornar endpoints de snippets mais ricos em filtros
 - Testes de integração e CI
 
