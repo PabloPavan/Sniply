@@ -1,32 +1,68 @@
-# Sniply — Guia de Onboarding (Docker & Deploy)
+# Sniply — Onboarding Guide (Docker & Deploy)
 
-Este documento explica **como rodar, desenvolver, migrar e fazer deploy** do Sniply usando Docker Compose.
+[![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?logo=go&logoColor=white)](#)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-336791?logo=postgresql&logoColor=white)](#)
+[![Observability](https://img.shields.io/badge/Observability-Grafana%20%7C%20Prometheus%20%7C%20Loki%20%7C%20Tempo-orange)](#)
+[![License](https://img.shields.io/badge/License-MIT-green)](#)
 
-Se você está chegando agora no projeto, **leia na ordem**.  
-Este README foi escrito para evitar erros comuns e perda de contexto.
+This document explains **how to run, develop, migrate, and deploy** Sniply using Docker Compose.
 
----
-
-## TL;DR (para quem já é experiente)
-
-- **Nunca rode `docker compose up` “no seco”** → use os aliases (`DEV` / `PROD`)
-- **Migrações não rodam automaticamente** → precisam ser executadas explicitamente
-- **Produção só expõe 80/443** → todo o resto é interno
-- **Segredos nunca ficam no Git**
-- **Traefik é o único ponto de entrada externo**
+If you are new to the project, **read it in order**.  
+This README was written to prevent common mistakes and loss of context.
 
 ---
 
-## Visão Geral da Arquitetura
+## Table of Contents
 
-O Sniply roda como **um único stack Docker**, composto por:
+- [TL;DR (for experienced developers)](#tldr-for-experienced-developers)
+- [Architecture Overview](#architecture-overview)
+  - [Architecture Diagram (Mermaid)](#architecture-diagram-mermaid)
+- [Repository Structure](#repository-structure)
+- [Prerequisites](#prerequisites)
+- [Command Convention](#command-convention)
+- [Development](#development)
+  - [Start environment](#start-environment)
+  - [Run migrations](#run-migrations)
+  - [Logs](#logs)
+  - [Status](#status)
+  - [Daily development cycle](#daily-development-cycle)
+  - [Reset environment (DEV)](#reset-environment-dev)
+- [Production](#production)
+  - [Create environment file (outside Git)](#create-environment-file-outside-git)
+  - [Load variables into the shell](#load-variables-into-the-shell)
+  - [Start the stack](#start-the-stack)
+  - [Run migrations (PROD)](#run-migrations-prod)
+  - [Deploy / Update](#deploy--update)
+  - [Operations (Production)](#operations-production)
+- [Start the API debug](#start-the-api-debug)
+- [OpenAPI (automatic with swaggo)](#openapi-automatic-with-swaggo)
+- [Telemetry](#telemetry)
+  - [Observability Flow (Mermaid)](#observability-flow-mermaid)
+- [Examples for each endpoint (curl)](#examples-for-each-endpoint-curl)
 
-- **Traefik** – Reverse proxy e TLS (HTTPS)
-- **API (Go)** – Serviço principal
-- **PostgreSQL** – Banco local em container
-- **Observabilidade** – Grafana, Prometheus, Loki, Tempo, OpenTelemetry
+---
 
-Todos os serviços, exceto o Traefik, rodam em redes internas.
+## TL;DR (for experienced developers)
+
+- **Never run `docker compose up` “raw”** → use the aliases (`DEV` / `PROD`)
+- **Migrations do not run automatically** → they must be executed explicitly
+- **Production exposes only 80/443** → everything else is internal
+- **Secrets never go into Git**
+- **Traefik is the only external entry point**
+
+---
+
+## Architecture Overview
+
+Sniply runs as **a single Docker stack**, composed of:
+
+- **Traefik** – Reverse proxy and TLS (HTTPS)
+- **API (Go)** – Main service
+- **PostgreSQL** – Containerized database
+- **Observability** – Grafana, Prometheus, Loki, Tempo, OpenTelemetry
+
+All services, except Traefik, run on internal networks.
 
 ```
 Internet
@@ -41,11 +77,24 @@ Traefik (80/443)
          ├── Prometheus
          ├── Loki
          └── Tempo
-``` 
+```
+
+### Architecture Diagram (Mermaid)
+
+```mermaid
+flowchart TD
+  Internet((Internet)) --> Traefik[Traefik : 80/443]
+  Traefik --> API[API (Go)]
+  API --> DB[(PostgreSQL)]
+  Traefik --> Grafana[Grafana]
+  Grafana --> Prometheus[Prometheus]
+  Grafana --> Loki[Loki]
+  Grafana --> Tempo[Tempo]
+```
 
 ---
 
-## Estrutura do Repositório
+## Repository Structure
 
 ```
 .
@@ -61,68 +110,68 @@ Traefik (80/443)
 ├── otel-collector.yml
 ```
 
-Pré-requisitos
+Prerequisites
 ---------------------------------------
 
-**Desenvolvimento (local)**
+**Development (local)**
 
-Você precisa ter:
+You need:
 
 - Docker >= 24
-- Docker Compose v2 (docker compose)
-- Portas livres:
+- Docker Compose v2 (`docker compose`)
+- Free ports:
   - 8080 (API)
   - 5432 (Postgres)
   - 3001 (Grafana)
-  - 9090, 3100, 3200, 4317 (telemetria)
+  - 9090, 3100, 3200, 4317 (telemetry)
 
-**Produção**
+**Production**
 
-- Servidor Linux com Docker + Docker Compose
-- Portas 80 e 443 abertas
-- DNS configurado:
+- Linux server with Docker + Docker Compose
+- Ports 80 and 443 open
+- DNS configured:
   - api.DOMAIN
   - grafana.DOMAIN
 ---
 
-## Convenção de Comandos
+## Command Convention
 
-**⚠️ Regra importante
-Nunca rode apenas docker compose up.
-Sempre use compose.base.yml + um override.**
+**⚠️ Important rule
+Never run only docker compose up.
+Always use compose.base.yml + an override.**
 
-### Desenvolvimento
+### Development
 ```
 DEV="docker compose -f compose.base.yml -f compose.dev.yml"
 ```
 
-### Produção
+### Production
 ```
 PROD="docker compose -f compose.base.yml -f compose.prod.yml"
 ```
 
 ---
 
-## Desenvolvimento
+## Development
 
-### Subir ambiente
+### Start environment
 ```
 $DEV up -d --build
 ```
-Isso sobe:
+This starts:
 - API
 - Postgres
-- Observabilidade
-- Traefik (mesmo em dev)
+- Observability
+- Traefik (even in dev)
 
-### Rodar migrações
+### Run migrations
 ```
 $DEV --profile migrate up --abort-on-container-exit migrate
 ```
 
-**⚠️ Importante
-A API não roda migrações sozinha.
-Sempre execute este comando após subir o ambiente pela primeira vez.**
+**⚠️ Important
+The API does not run migrations by itself.
+Always execute this command after starting the environment for the first time.**
 
 ### Logs
 ```
@@ -134,54 +183,54 @@ $DEV logs -f api
 $DEV ps
 ```
 
-### Desenvolvimento — Ciclo diário
+### Daily development cycle
 
 **Rebuild + restart**
 ```
 $DEV up -d --build 
 ```
 
-**Reaplicar migrações (se mudou algo)**
+**Reapply migrations (if anything changed)**
 ```
 $DEV --profile migrate up --abort-on-container-exit migrate
 ```
 
-**Debug com Delve**
+**Debug with Delve**
 ```
 $DEV --profile debug up -d --build api-debug
 ```
 
-**Logs do debug:**
+**Debug logs:**
 ```
 $DEV logs -f api-debug
 ```
 
-**Parar debug:**
+**Stop debug:**
 ```
 $DEV stop api-debug
 ```
 
 ---
 
-###  Reset do ambiente (DEV)
+###  Reset environment (DEV)
 
-**Parar tudo**
+**Stop everything**
 ```
 $DEV down
 ```
 
-**Reset completo (apaga banco e volumes)**
+**Full reset (removes DB and volumes)**
 ```
 $DEV down -v
 ```
 
-⚠️ Nunca use -v em produção
+⚠️ Never use -v in production
 
-## Produção
+## Production
 
-**Criar arquivo de ambiente (fora do Git)**
+**Create environment file (outside Git)**
 
-No servidor:
+On the server:
 
 ```
 sudo mkdir -p /etc/sniply
@@ -189,7 +238,7 @@ sudo nano /etc/sniply/sniply.env
 sudo chmod 600 /etc/sniply/sniply.env
 ```
 
-Exemplo:
+Example:
 
 ```
 DOMAIN=example.com
@@ -205,22 +254,22 @@ GRAFANA_ADMIN_PASSWORD=strong-password
 GRAFANA_BASIC_AUTH=user:$apr1$HASH
 ```
 
-**Carregar variáveis no shell**
+**Load variables into the shell**
 ```
 set -a; source /etc/sniply/sniply.env; set +a
 ```
 
-### Subir stack
+### Start the stack
 ```
 $PROD up -d
 ```
 
-### Rodar migrações
+### Run migrations (PROD)
 ```
 $PROD --profile migrate up --abort-on-container-exit migrate
 ```
 
-### Produção — Deploy / Atualização
+### Deploy / Update
 ```
 git pull
 
@@ -230,7 +279,7 @@ $PROD --profile migrate up --abort-on-container-exit migrate
 $PROD up -d --build api
 ```
 
-### Operação (Produção)
+### Operations (Production)
 
 **Status**
 ```
@@ -244,12 +293,12 @@ $PROD logs -f api
 $PROD logs -f db
 ```
 
-**Reiniciar API**
+**Restart API**
 ```
 $PROD restart api
 ```
 
-**Acessar Postgres**
+**Access Postgres**
 ```
 $PROD exec db psql -U sniply -d sniply
 ```
@@ -316,10 +365,29 @@ This stack is split into two docker-compose files and connected by a shared Dock
 **High-level flow**
 ```
 API (OTLP) --> OTel Collector --> Tempo (traces)
-                           \\-> Loki (logs)
-                           \\-> Prometheus (metrics scrape)
+                           \-> Loki (logs)
+                           \-> Prometheus (metrics scrape)
 ```
 
+### Observability Flow (Mermaid)
+
+```mermaid
+sequenceDiagram
+  participant API as API (Go)
+  participant COL as OTel Collector
+  participant TMP as Tempo
+  participant LOK as Loki
+  participant PRO as Prometheus
+  participant GRA as Grafana
+
+  API->>COL: OTLP (traces/logs/metrics)
+  COL->>TMP: traces
+  COL->>LOK: logs
+  COL->>PRO: metrics endpoint (scrape)
+  PRO->>GRA: metrics datasource
+  LOK->>GRA: logs datasource
+  TMP->>GRA: traces datasource
+```
 
 **What each file does (observability-related)**
 - `src/cmd/api/main.go` initializes OTEL trace/metrics/logs, and DB telemetry. All signals use OTLP.
@@ -376,17 +444,13 @@ curl -v http://localhost:8080/health
 
 # Auth: login (obtain token)
 ```bash
-curl -v -X POST http://localhost:8080/v1/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"demo@local","password":"x"}'
+curl -v -X POST http://localhost:8080/v1/auth/login   -H 'Content-Type: application/json'   -d '{"email":"demo@local","password":"x"}'
 # Response: {"access_token":"...","token_type":"Bearer","expires_at":"..."}
 ```
 
 # Users: create (public)
 ```bash
-curl -v -X POST http://localhost:8080/v1/users \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"new@local","password":"secret"}'
+curl -v -X POST http://localhost:8080/v1/users   -H 'Content-Type: application/json'   -d '{"email":"new@local","password":"secret"}'
 ```
 
 # Users: get current user (protected)
@@ -396,16 +460,12 @@ curl -v -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/users/me
 
 # Users: update current user (protected)
 ```bash
-curl -v -X PUT http://localhost:8080/v1/users/me \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"email":"me@local","password":"newpass"}'
+curl -v -X PUT http://localhost:8080/v1/users/me   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"email":"me@local","password":"newpass"}'
 ```
 
 # Users: delete current user (protected)
 ```bash
-curl -v -X DELETE http://localhost:8080/v1/users/me \
-  -H "Authorization: Bearer $TOKEN"
+curl -v -X DELETE http://localhost:8080/v1/users/me   -H "Authorization: Bearer $TOKEN"
 ```
 
 # Users: list (admin)
@@ -425,22 +485,15 @@ curl -v http://localhost:8080/v1/snippets/snp_abc123
 
 # Snippets: create (protected)
 ```bash
-curl -v -X POST http://localhost:8080/v1/snippets \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"name":"Example","content":"print(\"hi\")","language":"python","tags":["dev"],"visibility":"public"}'
+curl -v -X POST http://localhost:8080/v1/snippets   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"name":"Example","content":"print(\"hi\")","language":"python","tags":["dev"],"visibility":"public"}'
 ```
 
 # Snippets: update (protected)
 ```bash
-curl -v -X PUT http://localhost:8080/v1/snippets/snp_abc123 \
-  -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"name":"Updated","content":"x","language":"txt"}'
+curl -v -X PUT http://localhost:8080/v1/snippets/snp_abc123   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"name":"Updated","content":"x","language":"txt"}'
 ```
 
 # Snippets: delete (protected)
 ```bash
-curl -v -X DELETE http://localhost:8080/v1/snippets/snp_abc123 \
-  -H "Authorization: Bearer $TOKEN"
+curl -v -X DELETE http://localhost:8080/v1/snippets/snp_abc123   -H "Authorization: Bearer $TOKEN"
 ```
