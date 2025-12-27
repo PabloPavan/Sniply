@@ -88,6 +88,8 @@ flowchart TD
   C --> P[Prometheus]
   C --> L[Loki]
   C --> M[Tempo]
+  T --> M
+  T --> P
   G --> P
   G --> L
   G --> M
@@ -461,7 +463,8 @@ sequenceDiagram
   COL->>TMP: traces
   COL->>LOK: logs
   COL->>PRO: metrics endpoint (scrape)
-  TRA->>PRO: /metrics (scrape)
+  PRO->>TRA: scrape /metrics
+  TRA->>TMP: OTLP traces
   PRO->>GRA: metrics datasource
   LOK->>GRA: logs datasource
   TMP->>GRA: traces datasource
