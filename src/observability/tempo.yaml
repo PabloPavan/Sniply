@@ -34,3 +34,11 @@ overrides:
   metrics_generator_processors:
     - service-graphs
     - span-metrics
+    - local-blocks
+
+compactor:
+  compaction:
+    block_retention: 168h
+  ring:
+    kvstore:
+      store: inmemory

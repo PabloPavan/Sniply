@@ -16,6 +16,16 @@ exporters:
 
 processors:
   batch:
+  resource/loki:
+    attributes:
+      - action: upsert
+        key: loki.resource.labels
+        value: service.name
+  attributes/loki:
+    actions:
+      - action: upsert
+        key: loki.attribute.labels
+        value: http.method,http.route,http.status_code
 
 service:
   pipelines:
@@ -25,7 +35,7 @@ service:
       exporters: [otlp]
     logs:
       receivers: [otlp]
-      processors: [batch]
+      processors: [resource/loki, attributes/loki, batch]
       exporters: [otlphttp/loki]
     metrics:
       receivers: [otlp]
