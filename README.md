@@ -1,202 +1,208 @@
-# Snippet Service
+# Sniply
 
-Serviço backend para **armazenamento e busca de snippets de texto**, com suporte a metadados (nome, linguagem, tags), visibilidade (`public` / `private`) e busca fuzzy.  
-Este projeto é desenvolvido em **Go**, utilizando **PostgreSQL**, **Docker** e **migrations versionadas**.
+## Overview
 
----
+**Sniply** is a modern, production‑ready backend service for storing, searching, and managing **text and code snippets**.
+It is designed with a strong focus on simplicity, performance, and clean architecture, making it suitable for personal tools, developer platforms, or integration into larger systems.
 
-## Visão Geral
-
-O objetivo do projeto é fornecer um **endpoint simples e eficiente** para:
-
-- Criar/Consultar snippets de texto
-- Realizar buscas fuzzy por nome, metadados e conteúdo
-- Gerenciar Usuarios e controloar visibilidade dos snippets
----
-
-## Stack Tecnológica
-
-- **Linguagem:** Go (stdlib + `chi`)
-- **Roteamento HTTP:** `github.com/go-chi/chi`
-- **Banco de dados:** PostgreSQL 16
-- **Busca:** PostgreSQL Full-Text Search + `pg_trgm`
-- **Migrações:** `golang-migrate`
-- **Containerização:** Docker + Docker Compose
-- **Observabilidade:** OpenTelemetry + Grafana (Prometheus, Loki, Tempo)
-- **Documentação da API:** Swagger (OpenAPI)
+The project follows best practices commonly found in high‑quality open‑source backend repositories: clear domain boundaries, explicit configuration, containerized workflows, and first‑class API documentation.
 
 ---
 
-## Arquitetura
+## Key Features
 
-```
-API (Go + chi)
-    |
-    v
-PostgreSQL < -- Migrate
-```
-
-Um container separado é utilizado exclusivamente para executar as **migrations**.
-
-## Banco de Dados
-
-### Entidades
-
-#### users
-- Representa usuários do sistema
-
-#### snippets
-- Conteúdo textual do snippet
-- Metadados: linguagem e tags
-- Visibilidade: `public` ou `private`
-- Relacionado a um usuário
+* JWT‑based authentication
+* User management (signup, login, profile management)
+* Full CRUD for snippets
+* Snippet visibility control (`public` / `private`)
+* Advanced search using PostgreSQL **Full‑Text Search** and **pg_trgm** (fuzzy search)
+* Filtering by language, tags, and visibility
+* Pagination support
+* OpenAPI / Swagger documentation
+* Docker‑first development and deployment
+* Ready for observability (metrics, logs, traces)
 
 ---
 
-<img width="631" height="488" alt="image" src="https://github.com/user-attachments/assets/7280f7be-b0a3-4e87-8e32-5e8dcf081a5f" />
+## Tech Stack
 
-## Busca
-
-- **Fuzzy search no nome:** `pg_trgm`
-- **Busca textual:** Full-Text Search do PostgreSQL
-- Campos indexados: `name`, `content`, `tags`
-
----
-
-## Migrations
-
-O schema do banco é controlado por **migrations versionadas** usando `golang-migrate`.
-
-- Cada alteração estrutural gera uma nova migration
-- A API nunca cria ou altera tabelas diretamente
-- O histórico é mantido na tabela `schema_migrations`
+| Category         | Technology                              |
+| ---------------- | --------------------------------------- |
+| Language         | Go                                      |
+| HTTP Router      | `chi`                                   |
+| Database         | PostgreSQL 16                           |
+| Search           | Full‑Text Search + `pg_trgm`            |
+| Migrations       | `golang-migrate`                        |
+| Containerization | Docker, Docker Compose                  |
+| API Docs         | Swagger / OpenAPI                       |
+| Observability    | OpenTelemetry (Prometheus, Loki, Tempo) |
 
 ---
 
-## Docker
+## Getting Started
 
-### Serviços
+### Prerequisites
 
-| Serviço | Função |
-|-------|-------|
-| db | PostgreSQL |
-| migrate | Executa migrations |
-| api | Servidor HTTP Go |
+Make sure you have the following installed:
 
-### Subir o banco
+* Go 1.20 or newer
+* Docker and Docker Compose
+* PostgreSQL 16 (or run via Docker)
 
-```
-docker compose up -d db
-```
+---
 
-### Rodar migrations
+## Installation
+
+### Clone the Repository
 
 ```bash
-docker compose run --rm migrate up
-```
-
-### Subir a API
-
-```
-docker compose up -d api
+git clone https://github.com/PabloPavan/Sniply.git
+cd Sniply
 ```
 
 ---
 
-## API
+## Running with Docker (Recommended)
+
+For development, debugging, and advanced Docker workflows (including debug images, hot reload, and troubleshooting), please refer to  [README.dev.md](./README.dev.md).
+That document describes the recommended and correct way to run Sniply with Docker in development environments.
+
+## API Overview
 
 ### Health Check
 
-```
+```http
 GET /health
 ```
 
-### OpenAPI (Swagger UI)
+Returns service health status.
 
-```
-GET /swagger/index.html
-```
+---
 
-### Logar
+### Authentication
 
-Auth
-- POST /v1/auth/login
+#### Login
 
-Request body:
-```json
-{ "email": "you@example.com", "password": "secret" }
-```
+```http
+POST /v1/auth/login
+Content-Type: application/json
 
-Response: JSON com `access_token` (Bearer token), `token_type` e `expires_at`.
-
-### Users
-
-- POST /v1/users — criar usuário (público)
-
-Request body:
-```json
-{ "email": "you@example.com", "password": "secret" }
+{
+  "email": "user@example.com",
+  "password": "password"
+}
 ```
 
-- Protected (requer `Authorization: Bearer <token>`)
-  - GET /v1/users/me — obter perfil do usuário autenticado
-  - PUT /v1/users/me — atualizar email/password do próprio usuário
-  - DELETE /v1/users/me — deletar a própria conta
-
-- Admin-only (requer role `admin`):
-  - GET /v1/users — listar usuários
-  - PUT /v1/users/{id} — atualizar usuário por id
-  - DELETE /v1/users/{id} — deletar usuário por id
- 
-### Snippets
-
-- GET /v1/snippets — listar snippets (protegido)
-- GET /v1/snippets/{id} — obter snippet por id (protegido)
-- POST /v1/snippets — criar snippet (protegido)
-- PUT /v1/snippets/{id} — atualizar snippet (protegido)
-- DELETE /v1/snippets/{id} — deletar snippet (protegido)
-
-Query params para listagem:
-- `q` — termo de busca (full-text / fuzzy)
-- `creator` — filtrar por `creator_id` 
-- `language` — filtrar por `language`
-- `tags` — filtrar por `tags`
-- `visibility` — filtrar por `visibility` (creator or user adm obrigatorio para privado)
-- `limit`, `offset` — paginação
-
-Exemplo de body para o criar
+Response:
 
 ```json
 {
-  "name": "Exemplo",
-  "content": "print('hello')",
+  "access_token": "<jwt>",
+  "token_type": "Bearer",
+  "expires_at": "2025-01-01T00:00:00Z"
+}
+```
+
+---
+
+## Users
+
+| Method | Endpoint       | Description         |
+| ------ | -------------- | ------------------- |
+| POST   | `/v1/users`    | Create a new user   |
+| GET    | `/v1/users/me` | Get current user    |
+| PUT    | `/v1/users/me` | Update current user |
+| DELETE | `/v1/users/me` | Delete current user |
+
+All `/me` endpoints require authentication.
+
+---
+
+## Snippets
+
+| Method | Endpoint            | Description                |
+| ------ | ------------------- | -------------------------- |
+| GET    | `/v1/snippets`      | List snippets with filters |
+| GET    | `/v1/snippets/{id}` | Get snippet by ID          |
+| POST   | `/v1/snippets`      | Create a snippet           |
+| PUT    | `/v1/snippets/{id}` | Update a snippet           |
+| DELETE | `/v1/snippets/{id}` | Delete a snippet           |
+
+### Query Parameters (List)
+
+* `q` – search term (full‑text / fuzzy)
+* `language` – filter by language
+* `tags` – filter by tags
+* `visibility` – `public` or `private`
+* `limit` – pagination size
+* `offset` – pagination offset
+
+### Example – Create Snippet
+
+```json
+POST /v1/snippets
+{
+  "name": "Hello World",
+  "content": "print('Hello, world!')",
   "language": "python",
-  "tags": ["demo"],
+  "tags": ["example", "demo"],
   "visibility": "public"
 }
 ```
 
-**Para mais exemplos completos dos endpoints olhe o [guia DEV](./README.dev.md)**
+---
 
-## Segurança e autenticação
-------------------------
+## Security Considerations
 
-- Autenticação: JWT (HS256). O serviço `auth.Service` emite tokens de acesso com `IssueAccessToken(userID, role)` e valida via `ValidateAccessToken`.
-- Formato do header: `Authorization: Bearer <token>` — o middleware verifica e injeta o `user_id` e `role` no contexto da requisição.
-- Permissões: a API usa o campo `role` do token para checar permissões; o helper `auth.IsAdmin(ctx)` retorna true para `role == "admin"`.
-- Use HTTPS em produção e mantenha a chave secreta fora do código (variáveis de ambiente / secret manager).
-- Tempo de vida do token é configurável em `auth.Service.AccessTTL`.
-
-## Notas sobre comportamento atual
------------------------------
-- A rota `POST /v1/users` cria uma conta e a partir daí você pode chamar `/v1/auth/login` para obter o token.
-- As migrations vivem em `migrations/` e devem ser aplicadas antes de subir a API.
-- IDs usados pelo sistema seguem o formato `usr_*` e `snp_*`.
-
-## Contribuindo e próximos passos
------------------------------
-
-- Tornar endpoints de snippets mais ricos em filtros
-- Testes de integração e CI
+* All protected endpoints require a valid JWT
+* Passwords are stored hashed
+* Always run behind HTTPS in production
+* Validate environment variables before startup
 
 ---
+
+## Project Structure (High Level)
+
+```text
+cmd/            # Application entrypoints
+internal/       # Application core (domain, services, repositories)
+migrations/     # Database migrations
+httpapi/        # HTTP handlers and routing
+pkg/            # Shared utilities
+```
+
+---
+
+## Contributing
+
+Contributions are welcome.
+
+Recommended workflow:
+
+1. Fork the repository
+2. Create a feature branch (`feature/my-feature`)
+3. Commit with clear messages
+4. Add tests when applicable
+5. Open a Pull Request with a clear description
+
+---
+
+## Roadmap
+
+* Automated tests (unit and integration)
+* CI pipeline (lint, test, build)
+* Rate limiting and API quotas
+* Extended observability dashboards
+* Deployment examples (Kubernetes, cloud providers)
+
+---
+
+## License
+
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+
+---
+
+## Author
+
+Developed by **Pablo Pavan**.
