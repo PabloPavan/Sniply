@@ -1,0 +1,33 @@
+services:
+  traefik:
+    command:
+      - --accesslog=true
+      - --metrics.prometheus=true
+      - --metrics.prometheus.addentrypointslabels=true
+      - --metrics.prometheus.addserviceslabels=true
+      - --tracing.otlp=true
+      - --tracing.otlp.grpc.endpoint=tempo:4317
+      - --tracing.otlp.grpc.insecure=true
+      - --tracing.serviceName=traefik
+    networks:
+      - proxy
+      - sniply-observability
+  db:
+    ports: []
+
+  api:
+    ports: []
+    labels:
+      - traefik.http.routers.api.tls.certresolver=le
+  grafana:
+    ports: []
+    labels:
+      - traefik.http.routers.grafana.tls.certresolver=le
+  prometheus:
+    ports: []
+  loki:
+    ports: []
+  tempo:
+    ports: []
+  otel-collector:
+    ports: []

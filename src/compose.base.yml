@@ -1,0 +1,171 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.network=proxy
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # HTTP -> HTTPS
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      # Let's Encrypt (HTTP-01 challenge)
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - proxy
+
+  # =========================
+  # App (API + DB)
+  # =========================
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: sniply
+      POSTGRES_USER: sniply
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/18/docker
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sniply -d sniply"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - app
+
+  migrate:
+    image: migrate/migrate:v4.19.1
+    profiles: ["migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations:ro
+    entrypoint:
+      - /migrate
+      - -source=file:///migrations
+      - -database=postgres://sniply:${POSTGRES_PASSWORD}@db:5432/sniply?sslmode=disable
+    command: ["up"]
+    networks:
+      - app
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      APP_PORT: "8080"
+      DATABASE_URL: "postgres://sniply:${POSTGRES_PASSWORD}@db:5432/sniply?sslmode=disable"
+      JWT_SECRET: ${JWT_SECRET}
+      OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4317"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app
+      - sniply-observability
+      - proxy
+    labels:
+      - traefik.enable=true
+      # Roteamento: api.seudominio.com -> api:8080
+      - traefik.http.routers.api.rule=Host(`api.${DOMAIN}`)
+      - traefik.http.routers.api.entrypoints=websecure
+      - traefik.http.routers.api.service=api
+      - traefik.http.services.api.loadbalancer.server.port=8080
+      - traefik.docker.network=proxy
+
+  # =========================
+  # Observabilidade (interno)
+  # =========================
+  grafana:
+    image: grafana/grafana:12.3
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - sniply-observability
+      - proxy
+    labels:
+      - traefik.enable=true
+      # Roteamento: grafana.seudominio.com -> grafana:3000
+      - traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
+      - traefik.docker.network=proxy
+
+      # Proteção extra (Basic Auth no Traefik)
+      # Gere a hash com: htpasswd -nb user 'senha'
+      - traefik.http.routers.grafana.middlewares=grafana-auth
+      - traefik.http.middlewares.grafana-auth.basicauth.users=${GRAFANA_BASIC_AUTH}
+
+  prometheus:
+    image: prom/prometheus:v3.8.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - sniply-observability
+
+  loki:
+    image: grafana/loki:3.6.3
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+    networks:
+      - sniply-observability
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - tempo-data:/var/tempo
+      - ./observability/tempo.yaml:/etc/tempo.yaml:ro
+    networks:
+      - sniply-observability
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.142.0
+    command: ["--config=/etc/otel-collector.yml"]
+    volumes:
+      - ./observability/otel-collector.yml:/etc/otel-collector.yml:ro
+    depends_on:
+      - tempo
+      - loki
+    networks:
+      - sniply-observability
+    expose:
+      - "4317"
+
+volumes:
+  pgdata:
+  grafana-data:
+  tempo-data:
+  traefik-letsencrypt:
+
+networks:
+  app:
+  proxy:
+    name: proxy
+  sniply-observability:

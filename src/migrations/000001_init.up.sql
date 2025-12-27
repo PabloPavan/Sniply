@@ -78,8 +78,3 @@ CREATE INDEX IF NOT EXISTS idx_snippets_name_trgm
 -- Full-text search (conteúdo + nome + tags)
 CREATE INDEX IF NOT EXISTS idx_snippets_fts
   ON snippets USING GIN (search_tsv);
-
--- Usuário demo
-INSERT INTO users (id, email, password_hash, role)
-VALUES ('usr_demo', 'demo@local', '', 'admin')
-ON CONFLICT (id) DO NOTHING;

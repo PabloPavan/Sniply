@@ -31,4 +31,9 @@ go.work.sum
 # .idea/
 .vscode/
 
+# Certificate files
+*.crt
+*.key
+*.pem
+
 
