@@ -109,12 +109,35 @@ docker compose run --rm migrate \
 # migrate -path ./migrations -database "$DATABASE_URL" up
 ```
 
+Rollback a migration
+To undo the last applied migration:
+
+```bash
+cd src
+docker compose run --rm migrate \
+  -source file:///migrations \
+  -database="$DATABASE_URL" down 1
+```
+
+To rollback a specific version use `goto` or run `down` stepwise.
+
 4. Run the API:
 
 ```bash
 cd src
 go run ./cmd/api
 ```
+
+Database seeding
+- The project inserts a demo user `usr_demo` in `000001_init.up.sql`.
+- For development you can update or insert additional data via psql or a small SQL file.
+
+Troubleshooting
+- If migrations are not detected, verify filenames end with `.up.sql` / `.down.sql` (e.g., `000002_users_role.up.sql`).
+- If a migration partially applied (client timeout), inspect DB (`schema_migrations`) and re-run `up`.
+
+Telemetry 
+---------------------------------
 
 Observability (Grafana, Prometheus, Loki, Tempo, OTEL)
 This stack is split into two docker-compose files and connected by a shared Docker network.
@@ -177,38 +200,24 @@ Signal mapping
 Traces:  API -> OTLP -> OTel Collector -> Tempo -> Grafana
 Logs:    API -> OTLP -> OTel Collector -> Loki  -> Grafana
 Metrics: API -> OTLP -> OTel Collector -> Prometheus -> Grafana
+DB:      API -> OTLP -> Otel Collector -> Prometheus -> Grafana
 ```
-
+DB telemetry (traces + metrics)
+- Spans: each DB call (Query/QueryRow/Exec) creates a span named `DB <OPERATION>` with attributes like `db.system=postgresql` and `db.operation=SELECT/INSERT/...`.
+- Metrics:
+  - `sniply_db_query_duration_seconds` (histogram) with labels `db.system`, `db.operation`, `db.status`
+  - `sniply_db_query_errors_total` (counter) with labels `db.system`, `db.operation`, `db.status`
+- Implementation files:
+  - `src/internal/db/telemetry.go` contains the instrumentation and metrics definitions.
+  - `src/internal/db/base.go` wraps the queryer to emit spans/metrics.
+  - `src/cmd/api/main.go` calls `db.InitTelemetry("sniply-api")` during startup.
+  
 Key environment variable
 - `OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317` (set in `src/docker-compose.yml`)
 
 Notes
 - The API listens on the address configured in `cmd/api` (check the file if you need to change port).
 - Use `Authorization: Bearer <token>` for protected endpoints. Get a token via `POST /v1/auth/login`.
-
-Rollback a migration
-To undo the last applied migration:
-
-```bash
-cd src
-docker compose run --rm migrate \
-  -source file:///migrations \
-  -database="$DATABASE_URL" down 1
-```
-
-To rollback a specific version use `goto` or run `down` stepwise.
-
-Database seeding
-- The project inserts a demo user `usr_demo` in `000001_init.up.sql`.
-- For development you can update or insert additional data via psql or a small SQL file.
-
-Running tests
-- Add tests under `internal/*` as needed.
-- Use `go test ./...` in the `src` folder to run unit tests.
-
-Troubleshooting
-- If migrations are not detected, verify filenames end with `.up.sql` / `.down.sql` (e.g., `000002_users_role.up.sql`).
-- If a migration partially applied (client timeout), inspect DB (`schema_migrations`) and re-run `up`.
 
 Examples for each endpoint (curl)
 ---------------------------------
