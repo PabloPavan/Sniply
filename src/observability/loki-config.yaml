@@ -3,9 +3,15 @@ auth_enabled: false
 server:
   http_listen_port: 3100
 
+memberlist:
+  join_members: ["loki:7946"]
+
 common:
   path_prefix: /loki
   replication_factor: 1
+  ring:
+    kvstore:
+      store: memberlist
   storage:
     filesystem:
       chunks_directory: /loki/chunks
@@ -29,4 +35,3 @@ ruler:
     type: local
     local:
       directory: /loki/rules
-
