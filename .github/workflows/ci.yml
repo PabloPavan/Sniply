@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgres://sniply:sniply@localhost:5432/sniply?sslmode=disable
+      GOTOOLCHAIN: local
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: sniply
+          POSTGRES_USER: sniply
+          POSTGRES_PASSWORD: sniply
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U sniply -d sniply"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+          cache: true
+          cache-dependency-path: src/go.sum
+
+      - name: Install postgres client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for database
+        run: |
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U sniply -d sniply; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Install migrate
+        run: |
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+      - name: Run migrations
+        working-directory: src
+        run: migrate -path ./migrations -database "$DATABASE_URL" up
+
+      - name: Run unit tests
+        working-directory: src
+        run: go test ./...
+
+      - name: Run integration tests
+        working-directory: src
+        run: go test ./integration/...
