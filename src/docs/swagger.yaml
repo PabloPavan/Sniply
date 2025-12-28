@@ -9,12 +9,8 @@ definitions:
     type: object
   httpapi.LoginResponse:
     properties:
-      access_token:
-        type: string
-      expires_at:
+      session_expires_at:
         description: RFC3339
-        type: string
-      token_type:
         type: string
     type: object
   httpapi.UserUpdateRequest:
@@ -137,6 +133,20 @@ paths:
       summary: Login
       tags:
       - auth
+  /auth/logout:
+    post:
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Logout
+      tags:
+      - auth
   /health:
     get:
       produces:
@@ -208,7 +218,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: List snippets
       tags:
       - snippets
@@ -246,7 +256,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Create snippet
       tags:
       - snippets
@@ -278,7 +288,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Delete snippet
       tags:
       - snippets
@@ -309,7 +319,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Get snippet by id
       tags:
       - snippets
@@ -348,7 +358,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Update snippet
       tags:
       - snippets
@@ -389,7 +399,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: List users (admin)
       tags:
       - users
@@ -457,7 +467,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Delete user (admin or self)
       tags:
       - users
@@ -496,7 +506,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Update user (admin or self)
       tags:
       - users
@@ -518,7 +528,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Delete current user
       tags:
       - users
@@ -543,7 +553,7 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Get current user
       tags:
       - users
@@ -577,14 +587,14 @@ paths:
           schema:
             type: string
       security:
-      - BearerAuth: []
+      - SessionAuth: []
       summary: Update current user
       tags:
       - users
 securityDefinitions:
-  BearerAuth:
-    description: Type "Bearer {token}" to authorize
-    in: header
-    name: Authorization
+  SessionAuth:
+    description: HttpOnly session cookie
+    in: cookie
+    name: sniply_session
     type: apiKey
 swagger: "2.0"

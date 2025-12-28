@@ -3,6 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](#)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18%2B-336791?logo=postgresql&logoColor=white)](#)
+[![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D?logo=redis&logoColor=white)](#)
 [![Observability](https://img.shields.io/badge/Observability-Grafana%20%7C%20Prometheus%20%7C%20Loki%20%7C%20Tempo-orange)](#)
 [![Logs](https://img.shields.io/badge/Logs-Alloy-6E46FF?logo=grafana&logoColor=white)](#)
 [![License](https://img.shields.io/badge/License-MIT-green)](#)
@@ -20,13 +21,14 @@ At runtime, all traffic flows through Traefik (TLS + routing), the API talks to 
 
 ## Key Features
 
-* JWT‑based authentication
+* Session‑based authentication (HttpOnly cookies)
 * User management (signup, login, profile management)
 * Full CRUD for snippets
 * Snippet visibility control (`public` / `private`)
 * Advanced search using PostgreSQL **Full‑Text Search** and **pg_trgm** (fuzzy search)
 * Filtering by language, tags, and visibility
 * Pagination support
+* Redis‑backed snippet cache and login rate limiting
 * OpenAPI / Swagger documentation
 * Docker‑first development and deployment
 * Ready for observability (metrics, logs, traces)
@@ -40,6 +42,7 @@ At runtime, all traffic flows through Traefik (TLS + routing), the API talks to 
 | Language         | Go                                      |
 | HTTP Router      | `chi`                                   |
 | Database         | PostgreSQL 18                           |
+| Cache / Sessions | Redis                                  |
 | Search           | Full‑Text Search + `pg_trgm`            |
 | Migrations       | `golang-migrate`                        |
 | Containerization | Docker, Docker Compose                  |
@@ -107,13 +110,21 @@ Content-Type: application/json
 
 Response:
 
+Sets a `Set-Cookie` header with the HttpOnly session cookie.
+
 ```json
 {
-  "access_token": "<jwt>",
-  "token_type": "Bearer",
-  "expires_at": "2025-01-01T00:00:00Z"
+  "session_expires_at": "2025-01-01T00:00:00Z"
 }
 ```
+
+#### Logout
+
+```http
+POST /v1/auth/logout
+```
+
+Clears the session cookie.
 
 ---
 
@@ -166,7 +177,8 @@ POST /v1/snippets
 
 ## Security Considerations
 
-* All protected endpoints require a valid JWT
+* All protected endpoints require a valid session cookie
+* Sessions use HttpOnly cookies (avoid localStorage tokens)
 * Passwords are stored hashed
 * Always run behind HTTPS in production
 * Validate environment variables before startup
@@ -207,7 +219,7 @@ Recommended workflow:
 
 * Automated tests (unit and integration)
 * CI pipeline (lint, test, build)
-* Rate limiting and API quotas
+* API quotas
 * Extended observability dashboards
 * Deployment examples (Kubernetes, cloud providers)
 

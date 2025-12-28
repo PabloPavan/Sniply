@@ -55,10 +55,11 @@ Sniply runs as **a single Docker stack**, composed of:
 - **Traefik** – Reverse proxy and TLS (HTTPS)
 - **API (Go)** – Main service
 - **PostgreSQL** – Containerized database
+- **Redis** – Sessions, cache, and rate limiting
 - **OTel Collector** – Receives OTLP from the API and exports to the observability backends
 - **Observability** – Grafana, Prometheus, Loki, Tempo
 
-All services, except Traefik, run on internal networks. The API and DB use the `app` network, observability uses `sniply-observability`, and Traefik routes via `proxy`.
+All services, except Traefik, run on internal networks. The API, Postgres, and Redis use the `app` network, observability uses `sniply-observability`, and Traefik routes via `proxy`.
 
 ```
 Internet
@@ -66,13 +67,10 @@ Internet
    ▼
 Traefik (80/443)
    │
-   ├── API
-   │     └── Postgres
-   │
-   └── Grafana
-         ├── Prometheus
-         ├── Loki
-         └── Tempo
+   └── API
+         ├── Postgres
+         └── Redis (sessions/cache/rate limit)
+Prometheus / Loki / Tempo -> Grafana
 API -> OTel Collector -> (Prometheus/Loki/Tempo)
 ```
 
@@ -83,18 +81,25 @@ flowchart TD
   I((Internet)) --> T[Traefik 80 443]
   T --> A[API Go]
   A --> D[(PostgreSQL)]
-  T --> G[Grafana]
+  A --> R[(Redis)]
   A --> C[OTel Collector]
   DL[(Docker logs)] --> AL[Alloy]
   C --> P[Prometheus]
   C --> L[Loki]
   C --> M[Tempo]
+  P --> G[Grafana]
+  L --> G[Grafana]
+  M --> G[Grafana]
   T --> M
   T --> P
   AL --> L
-  G --> P
-  G --> L
-  G --> M
+```
+
+**Application flow**
+```
+Client -> Traefik -> API
+API -> Redis (sessions, cache, rate limiting)
+API -> PostgreSQL (users, snippets)
 ```
 
 ---
@@ -133,6 +138,7 @@ You need:
   - 8081 (Traefik dashboard)
   - 8080 (API)
   - 5432 (Postgres)
+  - 6379 (Redis)
   - 3001 (Grafana)
   - 9090, 3100, 3200, 4317 (telemetry)
 
@@ -324,7 +330,6 @@ DOMAIN=example.com
 ACME_EMAIL=you@example.com
 
 POSTGRES_PASSWORD=super-secure-password
-JWT_SECRET=very-long-random-secret
 
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=strong-password
@@ -423,14 +428,29 @@ OpenAPI (automatic with swaggo)
 go install github.com/swaggo/swag/cmd/swag@latest
 ```
 
-**2. Generate docs (writes to `src/docs`):**
+**2. swag not found in path**
+
+verify if swag is in GOPATH
+
+```bash
+go env GOPATH
+ls -l "$(go env GOPATH)/bin"
+```
+
+If found, add in PATH
+
+```bash
+export PATH="$(go env GOPATH)/bin:$PATH"
+```
+
+**3. Generate docs (writes to `src/docs`):**
 
 ```bash
 cd src
 go generate ./...
 ```
 
-**3. Start the API and open the Swagger UI:**
+**4. Start the API and open the Swagger UI:**
 ```
 http://localhost:8080/swagger/index.html
 ```
@@ -438,7 +458,7 @@ http://localhost:8080/swagger/index.html
 Telemetry 
 ---------------------------------
 
-Observability (Grafana, Prometheus, Loki, Tempo, OTEL, Alloy)
+Observability (Grafana, Prometheus, Loki, Tempo, OTEL, Alloy, App Metrics)
 This stack runs in the same compose setup as the API and is connected through the `sniply-observability` network.
 
 **High-level flow**
@@ -446,6 +466,7 @@ This stack runs in the same compose setup as the API and is connected through th
 API (OTLP) --> OTel Collector --> Tempo (traces)
                            \-> Loki (logs)
                            \-> Prometheus (metrics scrape)
+API (app metrics) --------> OTel Collector --> Prometheus (metrics scrape)
 Traefik (Prometheus metrics) --> Prometheus (metrics scrape)
 Docker logs (all containers) --> Alloy --> Loki
 ```
@@ -464,6 +485,7 @@ sequenceDiagram
   participant GRA as Grafana
 
   API->>COL: OTLP (traces/logs/metrics)
+  API->>COL: App metrics (users/snippets/sessions)
   COL->>TMP: traces
   COL->>LOK: logs
   COL->>PRO: metrics endpoint (scrape)
@@ -492,6 +514,7 @@ sequenceDiagram
 - `src/observability/tempo.yaml` configures Tempo storage and OTLP receiver.
 - `src/observability/grafana/provisioning/datasources/datasources.yml` declares Prometheus, Loki, and Tempo datasources.
 - `src/observability/grafana/dashboards/sniply-api.json` defines the HTTP and DB dashboards.
+- `src/observability/grafana/dashboards/sniply-growth.json` defines user/snippet/session growth stats.
 - `src/compose.base.yml` defines the full stack, shared networks, and OTEL endpoint for the API.
 - `src/compose.dev.yml` exposes dev ports and Traefik dashboard routing.
 - `src/compose.prod.yml` contains production overrides.
@@ -519,22 +542,22 @@ DB:      API -> OTLP -> Otel Collector -> Prometheus -> Grafana
 
 **Notes**
 - The API listens on the address configured in `cmd/api` (check the file if you need to change port).
-- Use `Authorization: Bearer <token>` for protected endpoints. Get a token via `POST /v1/auth/login`.
+- Use the HttpOnly session cookie for protected endpoints. Login sets the cookie via `Set-Cookie`.
 
 Examples for each endpoint (curl)
 ---------------------------------
 
-Below are minimal curl examples for the main API endpoints. Replace `localhost:8080` and `$TOKEN` with your values.
+Below are minimal curl examples for the main API endpoints. Replace `localhost:8080` with your values.
 
 # Health
 ```bash
 curl -v http://localhost:8080/health
 ```
 
-# Auth: login (obtain token)
+# Auth: login (store session cookie)
 ```bash
-curl -v -X POST http://localhost:8080/v1/auth/login   -H 'Content-Type: application/json'   -d '{"email":"demo@local","password":"x"}'
-# Response: {"access_token":"...","token_type":"Bearer","expires_at":"..."}
+curl -v -c cookies.txt -X POST http://localhost:8080/v1/auth/login   -H 'Content-Type: application/json'   -d '{"email":"demo@local","password":"x"}'
+# Response: {"session_expires_at":"..."}
 ```
 
 # Users: create (public)
@@ -544,45 +567,50 @@ curl -v -X POST http://localhost:8080/v1/users   -H 'Content-Type: application/j
 
 # Users: get current user (protected)
 ```bash
-curl -v -H "Authorization: Bearer $TOKEN" http://localhost:8080/v1/users/me
+curl -v -b cookies.txt http://localhost:8080/v1/users/me
 ```
 
 # Users: update current user (protected)
 ```bash
-curl -v -X PUT http://localhost:8080/v1/users/me   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"email":"me@local","password":"newpass"}'
+curl -v -X PUT http://localhost:8080/v1/users/me   -H 'Content-Type: application/json'   -b cookies.txt   -d '{"email":"me@local","password":"newpass"}'
 ```
 
 # Users: delete current user (protected)
 ```bash
-curl -v -X DELETE http://localhost:8080/v1/users/me   -H "Authorization: Bearer $TOKEN"
+curl -v -X DELETE http://localhost:8080/v1/users/me   -b cookies.txt
 ```
 
 # Users: list (admin)
 ```bash
-curl -v -H "Authorization: Bearer $ADMIN_TOKEN" http://localhost:8080/v1/users
+curl -v -b cookies.txt http://localhost:8080/v1/users
 ```
 
 # Snippets: list / search (protected)
 ```bash
-curl -v 'http://localhost:8080/v1/snippets?q=example&limit=10'
+curl -v -b cookies.txt 'http://localhost:8080/v1/snippets?q=example&limit=10'
 ```
 
 # Snippets: get by id (protected)
 ```bash
-curl -v http://localhost:8080/v1/snippets/snp_abc123
+curl -v -b cookies.txt http://localhost:8080/v1/snippets/snp_abc123
 ```
 
 # Snippets: create (protected)
 ```bash
-curl -v -X POST http://localhost:8080/v1/snippets   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"name":"Example","content":"print(\"hi\")","language":"python","tags":["dev"],"visibility":"public"}'
+curl -v -X POST http://localhost:8080/v1/snippets   -H 'Content-Type: application/json'   -b cookies.txt   -d '{"name":"Example","content":"print(\"hi\")","language":"python","tags":["dev"],"visibility":"public"}'
 ```
 
 # Snippets: update (protected)
 ```bash
-curl -v -X PUT http://localhost:8080/v1/snippets/snp_abc123   -H 'Content-Type: application/json'   -H "Authorization: Bearer $TOKEN"   -d '{"name":"Updated","content":"x","language":"txt"}'
+curl -v -X PUT http://localhost:8080/v1/snippets/snp_abc123   -H 'Content-Type: application/json'   -b cookies.txt   -d '{"name":"Updated","content":"x","language":"txt"}'
 ```
 
 # Snippets: delete (protected)
 ```bash
-curl -v -X DELETE http://localhost:8080/v1/snippets/snp_abc123   -H "Authorization: Bearer $TOKEN"
+curl -v -X DELETE http://localhost:8080/v1/snippets/snp_abc123   -b cookies.txt
+```
+
+# Auth: logout (clear session cookie)
+```bash
+curl -v -X POST http://localhost:8080/v1/auth/logout   -b cookies.txt
 ```

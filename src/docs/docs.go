@@ -66,6 +66,28 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/logout": {
+            "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "produces": [
@@ -92,7 +114,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "produces": [
@@ -185,7 +207,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "consumes": [
@@ -247,7 +269,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "produces": [
@@ -296,7 +318,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "consumes": [
@@ -357,7 +379,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "tags": [
@@ -408,7 +430,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "produces": [
@@ -522,7 +544,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "produces": [
@@ -562,7 +584,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "consumes": [
@@ -616,7 +638,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "tags": [
@@ -652,7 +674,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "consumes": [
@@ -713,7 +735,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "BearerAuth": []
+                        "SessionAuth": []
                     }
                 ],
                 "tags": [
@@ -782,14 +804,8 @@ const docTemplate = `{
         "httpapi.LoginResponse": {
             "type": "object",
             "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "expires_at": {
+                "session_expires_at": {
                     "description": "RFC3339",
-                    "type": "string"
-                },
-                "token_type": {
                     "type": "string"
                 }
             }
@@ -918,11 +934,11 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer {token}\" to authorize",
+        "SessionAuth": {
+            "description": "HttpOnly session cookie",
             "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
+            "name": "sniply_session",
+            "in": "cookie"
         }
     }
 }`

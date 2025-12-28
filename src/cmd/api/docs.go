@@ -6,7 +6,7 @@ package main
 // @version 1.0
 // @description Sniply HTTP API.
 // @BasePath /v1
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer {token}" to authorize
+// @securityDefinitions.apikey SessionAuth
+// @in cookie
+// @name sniply_session
+// @description HttpOnly session cookie
