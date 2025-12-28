@@ -2,6 +2,7 @@ package users
 
 import (
 	"context"
+	"database/sql"
 	"strconv"
 	"strings"
 
@@ -63,6 +64,10 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (User, error)
 	err := r.base.Q().QueryRow(ctx, sqlUserGetByEmail, email).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt,
 	)
+	if err == sql.ErrNoRows {
+		return User{}, internal.ErrNotFound
+	}
+
 	if err != nil {
 		return User{}, err
 	}
@@ -81,6 +86,11 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*User, error) {
 		&u.Role,
 		&u.CreatedAt,
 	)
+
+	if err == sql.ErrNoRows {
+		return nil, internal.ErrNotFound
+	}
+
 	if err != nil {
 		return nil, err
 	}

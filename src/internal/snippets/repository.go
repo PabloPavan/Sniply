@@ -2,6 +2,7 @@ package snippets
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -46,7 +47,7 @@ func (r *Repository) Create(ctx context.Context, s *Snippet) error {
 	ctx, cancel := r.base.WithTimeout(ctx)
 	defer cancel()
 
-	return r.base.Q().QueryRow(ctx, sqlSnippetInsert,
+	err := r.base.Q().QueryRow(ctx, sqlSnippetInsert,
 		s.ID,
 		s.Name,
 		s.Content,
@@ -55,6 +56,16 @@ func (r *Repository) Create(ctx context.Context, s *Snippet) error {
 		string(s.Visibility),
 		s.CreatorID,
 	).Scan(&s.CreatedAt, &s.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return internal.ErrNotFound
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repository) GetByIDPublicOnly(ctx context.Context, id string) (*Snippet, error) {
@@ -75,9 +86,15 @@ func (r *Repository) GetByIDPublicOnly(ctx context.Context, id string) (*Snippet
 		&s.CreatedAt,
 		&s.UpdatedAt,
 	)
-	if err != nil {
+
+	if err == sql.ErrNoRows {
 		return nil, internal.ErrNotFound
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
 	s.Visibility = Visibility(visibility)
 	return &s, nil
 }
@@ -168,7 +185,7 @@ func (r *Repository) Update(ctx context.Context, s *Snippet) error {
 	ctx, cancel := r.base.WithTimeout(ctx)
 	defer cancel()
 
-	return r.base.Q().QueryRow(ctx, sqlSnippetUpdate,
+	err := r.base.Q().QueryRow(ctx, sqlSnippetUpdate,
 		s.Name,
 		s.Content,
 		s.Language,
@@ -176,6 +193,16 @@ func (r *Repository) Update(ctx context.Context, s *Snippet) error {
 		string(s.Visibility),
 		s.ID,
 	).Scan(&s.UpdatedAt)
+
+	if err == sql.ErrNoRows {
+		return internal.ErrNotFound
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repository) Delete(ctx context.Context, id string, creatorID string) error {

@@ -310,12 +310,12 @@ func TestUsersAdminEndpoints(t *testing.T) {
 	adminEmail := fmt.Sprintf("admin_%s@local", internal.RandomHex(6))
 	adminPassword := "adminpass"
 	createAdminUser(t, env, adminEmail, adminPassword)
-
 	login(t, adminClient, env.baseURL, adminEmail, adminPassword)
 
 	userEmail := fmt.Sprintf("user_%s@local", internal.RandomHex(6))
 	userPassword := "userpass"
 	user := createUser(t, userClient, env.baseURL, userEmail, userPassword)
+	login(t, userClient, env.baseURL, userEmail, userPassword)
 
 	res := doJSON(t, userClient, http.MethodGet, env.baseURL+"/v1/users", nil)
 	_ = res.Body.Close()

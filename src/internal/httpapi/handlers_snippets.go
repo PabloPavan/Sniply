@@ -73,6 +73,9 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.Language == "" {
 		req.Language = "txt"
 	}
+	if req.Tags == nil {
+		req.Tags = []string{}
+	}
 	if req.Visibility == "" {
 		req.Visibility = snippets.VisibilityPrivate
 	}
@@ -315,6 +318,9 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Language == "" {
 		req.Language = "txt"
+	}
+	if req.Tags == nil {
+		req.Tags = []string{}
 	}
 	if req.Visibility == "" {
 		req.Visibility = snippets.VisibilityPrivate
