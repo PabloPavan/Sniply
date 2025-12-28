@@ -81,6 +81,7 @@ func main() {
 	cacheTTL := parseDurationEnv("SNIPPETS_CACHE_TTL", 2*time.Minute)
 	listCacheTTL := parseDurationEnv("SNIPPETS_LIST_CACHE_TTL", 30*time.Second)
 	snippetsCache := snippets.NewRedisCache(redisClient, "sniply:cache:")
+	telemetry.InitAppMetrics("sniply-api", d.Pool, redisClient, sessionPrefix)
 
 	app := &httpapi.App{
 		Health: &httpapi.HealthHandler{DB: d.Pool},
