@@ -3,7 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.24%2B-00ADD8?logo=go&logoColor=white)](#)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](#)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18%2B-336791?logo=postgresql&logoColor=white)](#)
-[![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D?logo=redis&logoColor=white)](#)
+[![Redis](https://img.shields.io/badge/Redis-8%2B-DC382D?logo=redis&logoColor=white)](#)
 [![Observability](https://img.shields.io/badge/Observability-Grafana%20%7C%20Prometheus%20%7C%20Loki%20%7C%20Tempo-orange)](#)
 [![Logs](https://img.shields.io/badge/Logs-Alloy-6E46FF?logo=grafana&logoColor=white)](#)
 [![License](https://img.shields.io/badge/License-MIT-green)](#)
