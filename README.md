@@ -6,7 +6,12 @@
 [![Redis](https://img.shields.io/badge/Redis-8%2B-DC382D?logo=redis&logoColor=white)](#)
 [![Observability](https://img.shields.io/badge/Observability-Grafana%20%7C%20Prometheus%20%7C%20Loki%20%7C%20Tempo-orange)](#)
 [![Logs](https://img.shields.io/badge/Logs-Alloy-6E46FF?logo=grafana&logoColor=white)](#)
+[![Proxy](https://img.shields.io/badge/Proxy-Traefik-24A1C1?logo=traefikproxy&logoColor=white)](#)
+[![API Docs](https://img.shields.io/badge/API%20Docs-Swagger-85EA2D?logo=swagger&logoColor=white)](#)
+![CI](https://github.com/PabloPavan/sniply_api/actions/workflows/ci.yml/badge.svg)
 [![License](https://img.shields.io/badge/License-MIT-green)](#)
+
+
 
 ## Overview
 
