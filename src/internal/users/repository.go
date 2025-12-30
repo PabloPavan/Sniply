@@ -2,12 +2,12 @@ package users
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"strconv"
 	"strings"
 
-	"github.com/PabloPavan/sniply_api/internal"
 	"github.com/PabloPavan/sniply_api/internal/db"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -64,8 +64,8 @@ func (r *Repository) GetByEmail(ctx context.Context, email string) (User, error)
 	err := r.base.Q().QueryRow(ctx, sqlUserGetByEmail, email).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.Role, &u.CreatedAt,
 	)
-	if err == sql.ErrNoRows {
-		return User{}, internal.ErrNotFound
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrNotFound
 	}
 
 	if err != nil {
@@ -87,8 +87,8 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*User, error) {
 		&u.CreatedAt,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, internal.ErrNotFound
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
 	}
 
 	if err != nil {
@@ -176,7 +176,7 @@ func (r *Repository) Update(ctx context.Context, u *UpdateUserRequest) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return internal.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }
@@ -190,7 +190,7 @@ func (r *Repository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return internal.ErrNotFound
+		return ErrNotFound
 	}
 	return nil
 }

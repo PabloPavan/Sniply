@@ -26,7 +26,7 @@ func AuthMiddleware(mgr *session.Manager, cookieCfg session.CookieConfig, apiKey
 
 				key, err := apiKeyStore.GetByTokenHash(r.Context(), apikeys.HashToken(token))
 				if err != nil {
-					if errors.Is(err, apikeys.ErrNotFound) {
+					if apikeys.IsNotFound(err) {
 						http.Error(w, "unauthorized", http.StatusUnauthorized)
 						return
 					}

@@ -1,6 +1,10 @@
 package apikeys
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/jackc/pgx/v5"
+)
 
 func TestTokenPrefix(t *testing.T) {
 	if got := TokenPrefix("short"); got != "short" {
@@ -44,5 +48,14 @@ func TestScopeValid(t *testing.T) {
 	}
 	if Scope("bad").Valid() {
 		t.Fatal("expected invalid scope to be invalid")
+	}
+}
+
+func TestIsNotFound(t *testing.T) {
+	if !IsNotFound(ErrNotFound) {
+		t.Fatal("expected ErrNotFound to match")
+	}
+	if !IsNotFound(pgx.ErrNoRows) {
+		t.Fatal("expected pgx.ErrNoRows to match")
 	}
 }

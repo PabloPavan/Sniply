@@ -2,12 +2,12 @@ package snippets
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/PabloPavan/sniply_api/internal"
 	"github.com/PabloPavan/sniply_api/internal/db"
+	"github.com/jackc/pgx/v5"
 )
 
 type Repository struct {
@@ -57,8 +57,8 @@ func (r *Repository) Create(ctx context.Context, s *Snippet) error {
 		s.CreatorID,
 	).Scan(&s.CreatedAt, &s.UpdatedAt)
 
-	if err == sql.ErrNoRows {
-		return internal.ErrNotFound
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
 	}
 
 	if err != nil {
@@ -87,8 +87,8 @@ func (r *Repository) GetByIDPublicOnly(ctx context.Context, id string) (*Snippet
 		&s.UpdatedAt,
 	)
 
-	if err == sql.ErrNoRows {
-		return nil, internal.ErrNotFound
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
 	}
 
 	if err != nil {
@@ -194,8 +194,8 @@ func (r *Repository) Update(ctx context.Context, s *Snippet) error {
 		s.ID,
 	).Scan(&s.UpdatedAt)
 
-	if err == sql.ErrNoRows {
-		return internal.ErrNotFound
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
 	}
 
 	if err != nil {
@@ -216,7 +216,7 @@ func (r *Repository) Delete(ctx context.Context, id string, creatorID string) er
 	}
 
 	if tag.RowsAffected() == 0 {
-		return internal.ErrNotFound
+		return ErrNotFound
 	}
 
 	return nil

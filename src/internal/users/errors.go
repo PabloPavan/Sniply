@@ -3,13 +3,14 @@ package users
 import (
 	"errors"
 
-	"github.com/PabloPavan/sniply_api/internal"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+var ErrNotFound = errors.New("user not found")
+
 func IsNotFound(err error) bool {
-	return errors.Is(err, pgx.ErrNoRows) || errors.Is(err, internal.ErrNotFound)
+	return errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrNotFound)
 }
 
 func IsUniqueViolationEmail(err error) bool {

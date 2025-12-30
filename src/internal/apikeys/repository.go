@@ -2,10 +2,11 @@ package apikeys
 
 import (
 	"context"
-	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/PabloPavan/sniply_api/internal/db"
+	"github.com/jackc/pgx/v5"
 )
 
 type Repository struct {
@@ -85,7 +86,7 @@ func (r *Repository) GetByTokenHash(ctx context.Context, hash string) (*Key, err
 		&k.RevokedAt,
 		&k.UserRole,
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
