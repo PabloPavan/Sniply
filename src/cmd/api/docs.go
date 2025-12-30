@@ -10,3 +10,7 @@ package main
 // @in cookie
 // @name sniply_session
 // @description HttpOnly session cookie
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name X-API-Key
+// @description API key (X-API-Key or Authorization: Bearer)

@@ -35,6 +35,7 @@ type LoginRequest struct {
 
 type LoginResponse struct {
 	SessionExpiresAt string `json:"session_expires_at"` // RFC3339
+	CSRFToken        string `json:"csrf_token"`
 }
 
 // Login Auth
@@ -131,6 +132,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	resp := LoginResponse{
 		SessionExpiresAt: sess.ExpiresAt.UTC().Format(time.RFC3339),
+		CSRFToken:        sess.CSRFToken,
 	}
 
 	telemetry.LogInfo(r.Context(), "user login",

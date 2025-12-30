@@ -27,6 +27,14 @@ func Middleware(mgr *Manager, cookieCfg CookieConfig) func(http.Handler) http.Ha
 				return
 			}
 
+			if requiresCSRFToken(r.Method) {
+				token := r.Header.Get("X-CSRF-Token")
+				if token == "" || token != sess.CSRFToken {
+					http.Error(w, "forbidden", http.StatusForbidden)
+					return
+				}
+			}
+
 			var refreshed bool
 			sess, refreshed, err = mgr.Refresh(r.Context(), sess)
 			if err != nil {
@@ -45,5 +53,14 @@ func Middleware(mgr *Manager, cookieCfg CookieConfig) func(http.Handler) http.Ha
 			ctx := identity.WithUser(r.Context(), sess.UserID, sess.Role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+func requiresCSRFToken(method string) bool {
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	default:
+		return true
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PabloPavan/sniply_api/internal"
+	"github.com/PabloPavan/sniply_api/internal/apikeys"
 	"github.com/PabloPavan/sniply_api/internal/db"
 	"github.com/PabloPavan/sniply_api/internal/httpapi"
 	"github.com/PabloPavan/sniply_api/internal/ratelimit"
@@ -50,6 +51,7 @@ func main() {
 	dbBase := db.NewBase(d.Pool, 3*time.Second)
 	snRepo := snippets.NewRepository(dbBase)
 	usrRepo := users.NewRepository(dbBase)
+	apiKeysRepo := apikeys.NewRepository(dbBase)
 
 	sessionPrefix := internal.Env("SESSION_REDIS_PREFIX", "sniply:session:")
 	sessionTTL := parseDurationEnv("SESSION_TTL", 7*24*time.Hour)
@@ -103,6 +105,8 @@ func main() {
 			Cookie:       cookie,
 			LoginLimiter: loginLimiter,
 		},
+		APIKeys:  &httpapi.APIKeysHandler{Repo: apiKeysRepo},
+		APIKeyDB: apiKeysRepo,
 	}
 
 	srv := &http.Server{

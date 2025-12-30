@@ -42,6 +42,7 @@ type SnippetsHandler struct {
 // @Accept json
 // @Produce json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param body body snippets.CreateSnippetRequest true "snippet"
 // @Success 201 {object} snippets.Snippet
 // @Failure 400 {string} string
@@ -128,6 +129,7 @@ func (h *SnippetsHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Tags snippets
 // @Produce json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param id path string true "snippet id"
 // @Success 200 {object} snippets.Snippet
 // @Failure 400 {string} string
@@ -172,6 +174,7 @@ func (h *SnippetsHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 // @Tags snippets
 // @Produce json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param q query string false "search"
 // @Param creator query string false "creator id"
 // @Param language query string false "language"
@@ -281,6 +284,7 @@ func (h *SnippetsHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Tags snippets
 // @Accept json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param id path string true "snippet id"
 // @Param body body snippets.CreateSnippetRequest true "snippet"
 // @Success 204
@@ -357,6 +361,7 @@ func (h *SnippetsHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Summary Delete snippet
 // @Tags snippets
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param id path string true "snippet id"
 // @Success 204
 // @Failure 400 {string} string

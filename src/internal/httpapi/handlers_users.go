@@ -124,6 +124,7 @@ func (h *UsersHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Tags users
 // @Produce json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param q query string false "search"
 // @Param limit query int false "limit"
 // @Param offset query int false "offset"
@@ -190,6 +191,7 @@ func (h *UsersHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Tags users
 // @Produce json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Success 200 {object} users.UserResponse
 // @Failure 401 {string} string
 // @Failure 404 {string} string
@@ -227,6 +229,7 @@ func (h *UsersHandler) Me(w http.ResponseWriter, r *http.Request) {
 // @Tags users
 // @Accept json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param body body UserUpdateRequest true "user"
 // @Success 204
 // @Failure 400 {string} string
@@ -248,6 +251,7 @@ func (h *UsersHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 // @Summary Delete current user
 // @Tags users
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Success 204
 // @Failure 401 {string} string
 // @Failure 404 {string} string
@@ -268,6 +272,7 @@ func (h *UsersHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
 // @Tags users
 // @Accept json
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param id path string true "user id"
 // @Param body body UserUpdateRequest true "user"
 // @Success 204
@@ -301,6 +306,7 @@ func (h *UsersHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Summary Delete user (admin or self)
 // @Tags users
 // @Security SessionAuth
+// @Security ApiKeyAuth
 // @Param id path string true "user id"
 // @Success 204
 // @Failure 400 {string} string

@@ -14,6 +14,7 @@ type Session struct {
 	ID              string    `json:"id"`
 	UserID          string    `json:"user_id"`
 	Role            string    `json:"role"`
+	CSRFToken       string    `json:"csrf_token"`
 	CreatedAt       time.Time `json:"created_at"`
 	LastRefreshedAt time.Time `json:"last_refreshed_at"`
 	ExpiresAt       time.Time `json:"expires_at"`
@@ -49,6 +50,7 @@ func (m *Manager) Create(ctx context.Context, userID, role string) (*Session, er
 		ID:              "ses_" + internal.RandomHex(idBytes),
 		UserID:          userID,
 		Role:            role,
+		CSRFToken:       internal.RandomHex(32),
 		CreatedAt:       now,
 		LastRefreshedAt: now,
 		ExpiresAt:       exp,

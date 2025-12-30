@@ -16,6 +16,8 @@ type App struct {
 	Snippets *SnippetsHandler
 	Users    *UsersHandler
 	Auth     *AuthHandler
+	APIKeys  *APIKeysHandler
+	APIKeyDB APIKeyStore
 }
 
 func NewRouter(app *App) http.Handler {
@@ -40,12 +42,19 @@ func NewRouter(app *App) http.Handler {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", app.Auth.Login)
 			r.Post("/logout", app.Auth.Logout)
+
+			r.Group(func(r chi.Router) {
+				r.Use(session.Middleware(app.Auth.Sessions, app.Auth.Cookie))
+				r.Post("/api-keys", app.APIKeys.Create)
+				r.Get("/api-keys", app.APIKeys.List)
+				r.Delete("/api-keys/{id}", app.APIKeys.Revoke)
+			})
 		})
 
 		r.Route("/snippets", func(r chi.Router) {
 			// Protected
 			r.Group(func(r chi.Router) {
-				r.Use(session.Middleware(app.Auth.Sessions, app.Auth.Cookie))
+				r.Use(AuthMiddleware(app.Auth.Sessions, app.Auth.Cookie, app.APIKeyDB))
 				r.Post("/", app.Snippets.Create)
 				r.Get("/", app.Snippets.List)
 				r.Get("/{id}", app.Snippets.GetByID)
@@ -60,7 +69,7 @@ func NewRouter(app *App) http.Handler {
 
 			// Protected
 			r.Group(func(r chi.Router) {
-				r.Use(session.Middleware(app.Auth.Sessions, app.Auth.Cookie))
+				r.Use(AuthMiddleware(app.Auth.Sessions, app.Auth.Cookie, app.APIKeyDB))
 
 				// Self endpoints
 				r.Get("/me", app.Users.Me)

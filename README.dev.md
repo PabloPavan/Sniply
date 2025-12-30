@@ -565,6 +565,18 @@ curl -v -c cookies.txt -X POST http://localhost:8080/v1/auth/login   -H 'Content
 # Response: {"session_expires_at":"..."}
 ```
 
+For state-changing requests with the session cookie, include `X-CSRF-Token` (from the login response).
+
+# Auth: create API key (session + CSRF)
+```bash
+curl -v -X POST http://localhost:8080/v1/auth/api-keys   -H 'Content-Type: application/json'   -H 'X-CSRF-Token: <csrf_token>'   -b cookies.txt   -d '{"name":"ci","scope":"read_write"}'
+```
+
+# Use API key (no CSRF required)
+```bash
+curl -v http://localhost:8080/v1/snippets   -H 'X-API-Key: sk_...'
+```
+
 # Users: create (public)
 ```bash
 curl -v -X POST http://localhost:8080/v1/users   -H 'Content-Type: application/json'   -d '{"email":"new@local","password":"secret"}'

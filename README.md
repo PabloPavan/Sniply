@@ -119,9 +119,50 @@ Sets a `Set-Cookie` header with the HttpOnly session cookie.
 
 ```json
 {
-  "session_expires_at": "2025-01-01T00:00:00Z"
+  "session_expires_at": "2025-01-01T00:00:00Z",
+  "csrf_token": "..."
 }
 ```
+
+For state-changing requests using the session cookie, send `X-CSRF-Token` with the value returned on login.
+
+#### API Keys
+
+Authenticated endpoints (except login/logout) also accept API keys.
+
+Create an API key (requires session auth + CSRF token):
+
+```http
+POST /v1/auth/api-keys
+X-CSRF-Token: <csrf_token>
+
+{
+  "name": "ci",
+  "scope": "read_write"
+}
+```
+
+Response returns the key **once**:
+
+```json
+{
+  "id": "key_...",
+  "token": "sk_...",
+  "token_prefix": "sk_...",
+  "scope": "read_write"
+}
+```
+
+Use the API key:
+
+```http
+GET /v1/snippets
+X-API-Key: sk_...
+```
+
+Scopes: `read` allows GET/HEAD/OPTIONS; `write` allows POST/PUT/PATCH/DELETE; `read_write` allows both.
+
+API keys are stored only as hashes; the raw token is not persisted and is shown once at creation.
 
 #### Logout
 
@@ -184,6 +225,7 @@ POST /v1/snippets
 
 * All protected endpoints require a valid session cookie
 * Sessions use HttpOnly cookies (avoid localStorage tokens)
+* Session requests that change data require `X-CSRF-Token`
 * Passwords are stored hashed
 * Always run behind HTTPS in production
 * Validate environment variables before startup

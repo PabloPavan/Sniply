@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/PabloPavan/sniply_api/internal"
+	"github.com/PabloPavan/sniply_api/internal/apikeys"
 	"github.com/PabloPavan/sniply_api/internal/db"
 	"github.com/PabloPavan/sniply_api/internal/httpapi"
 	"github.com/PabloPavan/sniply_api/internal/session"
@@ -26,6 +27,7 @@ type testEnv struct {
 	server   *httptest.Server
 	users    *users.Repository
 	snippets *snippets.Repository
+	apiKeys  *apikeys.Repository
 }
 
 func newTestEnv(t *testing.T) *testEnv {
@@ -46,6 +48,7 @@ func newTestEnv(t *testing.T) *testEnv {
 	base := db.NewBase(pool.Pool, 3*time.Second)
 	snRepo := snippets.NewRepository(base)
 	usrRepo := users.NewRepository(base)
+	apiKeyRepo := apikeys.NewRepository(base)
 
 	sessionManager := &session.Manager{
 		Store:   session.NewMemoryStore(),
@@ -66,6 +69,8 @@ func newTestEnv(t *testing.T) *testEnv {
 			Sessions: sessionManager,
 			Cookie:   cookieCfg,
 		},
+		APIKeys:  &httpapi.APIKeysHandler{Repo: apiKeyRepo},
+		APIKeyDB: apiKeyRepo,
 	}
 
 	srv := httptest.NewServer(httpapi.NewRouter(app))
@@ -76,6 +81,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		server:   srv,
 		users:    usrRepo,
 		snippets: snRepo,
+		apiKeys:  apiKeyRepo,
 	}
 }
 
@@ -108,7 +114,7 @@ func createUser(t *testing.T, client *http.Client, baseURL, email, password stri
 	return out
 }
 
-func login(t *testing.T, client *http.Client, baseURL, email, password string) {
+func login(t *testing.T, client *http.Client, baseURL, email, password string) string {
 	t.Helper()
 
 	payload := map[string]string{
@@ -119,6 +125,16 @@ func login(t *testing.T, client *http.Client, baseURL, email, password string) {
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("login status: %d", res.StatusCode)
+	}
+
+	var resp struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode login: %v", err)
+	}
+	if resp.CSRFToken == "" {
+		t.Fatal("missing csrf token in login response")
 	}
 
 	base, err := url.Parse(baseURL)
@@ -136,6 +152,7 @@ func login(t *testing.T, client *http.Client, baseURL, email, password string) {
 	if !found {
 		t.Fatal("missing session cookie after login")
 	}
+	return resp.CSRFToken
 }
 
 func logout(t *testing.T, client *http.Client, baseURL string) {
@@ -145,6 +162,40 @@ func logout(t *testing.T, client *http.Client, baseURL string) {
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("logout status: %d", res.StatusCode)
 	}
+}
+
+type apiKeyCreateResponse struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	Scope       string    `json:"scope"`
+	Token       string    `json:"token"`
+	TokenPrefix string    `json:"token_prefix"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+func createAPIKey(t *testing.T, client *http.Client, baseURL, csrfToken, name, scope string) apiKeyCreateResponse {
+	t.Helper()
+
+	payload := map[string]string{
+		"name":  name,
+		"scope": scope,
+	}
+	res := doJSONWithHeaders(t, client, http.MethodPost, baseURL+"/v1/auth/api-keys", payload, map[string]string{
+		"X-CSRF-Token": csrfToken,
+	})
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("create api key status: %d", res.StatusCode)
+	}
+
+	var out apiKeyCreateResponse
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		t.Fatalf("decode api key: %v", err)
+	}
+	if out.Token == "" {
+		t.Fatal("missing api key token")
+	}
+	return out
 }
 
 func createAdminUser(t *testing.T, env *testEnv, email, password string) {
@@ -173,6 +224,10 @@ func createAdminUser(t *testing.T, env *testEnv, email, password string) {
 }
 
 func doJSON(t *testing.T, client *http.Client, method, url string, body any) *http.Response {
+	return doJSONWithHeaders(t, client, method, url, body, nil)
+}
+
+func doJSONWithHeaders(t *testing.T, client *http.Client, method, url string, body any, headers map[string]string) *http.Response {
 	t.Helper()
 
 	var buf *bytes.Reader
@@ -192,6 +247,9 @@ func doJSON(t *testing.T, client *http.Client, method, url string, body any) *ht
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	res, err := client.Do(req)
@@ -223,7 +281,7 @@ func TestAuthLoginLogout(t *testing.T) {
 	created := createUser(t, client, env.baseURL, email, password)
 	t.Cleanup(func() { _ = env.users.Delete(context.Background(), created.ID) })
 
-	login(t, client, env.baseURL, email, password)
+	_ = login(t, client, env.baseURL, email, password)
 
 	res := doJSON(t, client, http.MethodGet, env.baseURL+"/v1/users/me", nil)
 	_ = res.Body.Close()
@@ -248,7 +306,7 @@ func TestUsersEndpoints(t *testing.T) {
 	password := "secret123"
 	user := createUser(t, client, env.baseURL, email, password)
 
-	login(t, client, env.baseURL, email, password)
+	csrf := login(t, client, env.baseURL, email, password)
 
 	res := doJSON(t, client, http.MethodGet, env.baseURL+"/v1/users/me", nil)
 	defer res.Body.Close()
@@ -269,7 +327,9 @@ func TestUsersEndpoints(t *testing.T) {
 		"email":    newEmail,
 		"password": "newpass123",
 	}
-	res = doJSON(t, client, http.MethodPut, env.baseURL+"/v1/users/me", update)
+	res = doJSONWithHeaders(t, client, http.MethodPut, env.baseURL+"/v1/users/me", update, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("update me status: %d", res.StatusCode)
@@ -289,7 +349,9 @@ func TestUsersEndpoints(t *testing.T) {
 		t.Fatalf("me email not updated: %s", meUpdated.Email)
 	}
 
-	res = doJSON(t, client, http.MethodDelete, env.baseURL+"/v1/users/me", nil)
+	res = doJSONWithHeaders(t, client, http.MethodDelete, env.baseURL+"/v1/users/me", nil, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete me status: %d", res.StatusCode)
@@ -310,12 +372,12 @@ func TestUsersAdminEndpoints(t *testing.T) {
 	adminEmail := fmt.Sprintf("admin_%s@local", internal.RandomHex(6))
 	adminPassword := "adminpass"
 	createAdminUser(t, env, adminEmail, adminPassword)
-	login(t, adminClient, env.baseURL, adminEmail, adminPassword)
+	adminCSRF := login(t, adminClient, env.baseURL, adminEmail, adminPassword)
 
 	userEmail := fmt.Sprintf("user_%s@local", internal.RandomHex(6))
 	userPassword := "userpass"
 	user := createUser(t, userClient, env.baseURL, userEmail, userPassword)
-	login(t, userClient, env.baseURL, userEmail, userPassword)
+	_ = login(t, userClient, env.baseURL, userEmail, userPassword)
 
 	res := doJSON(t, userClient, http.MethodGet, env.baseURL+"/v1/users", nil)
 	_ = res.Body.Close()
@@ -336,7 +398,9 @@ func TestUsersAdminEndpoints(t *testing.T) {
 		"password": "resetpass",
 		"role":     role,
 	}
-	res = doJSON(t, adminClient, http.MethodPut, env.baseURL+"/v1/users/"+user.ID, update)
+	res = doJSONWithHeaders(t, adminClient, http.MethodPut, env.baseURL+"/v1/users/"+user.ID, update, map[string]string{
+		"X-CSRF-Token": adminCSRF,
+	})
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("admin update status: %d", res.StatusCode)
@@ -353,7 +417,9 @@ func TestUsersAdminEndpoints(t *testing.T) {
 		t.Fatalf("updated role mismatch: %s", updated.Role)
 	}
 
-	res = doJSON(t, adminClient, http.MethodDelete, env.baseURL+"/v1/users/"+user.ID, nil)
+	res = doJSONWithHeaders(t, adminClient, http.MethodDelete, env.baseURL+"/v1/users/"+user.ID, nil, map[string]string{
+		"X-CSRF-Token": adminCSRF,
+	})
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("admin delete status: %d", res.StatusCode)
@@ -383,7 +449,7 @@ func TestSnippetsEndpoints(t *testing.T) {
 		t.Fatalf("snippets list no auth status: %d", res.StatusCode)
 	}
 
-	login(t, client, env.baseURL, email, password)
+	csrf := login(t, client, env.baseURL, email, password)
 
 	meRes := doJSON(t, client, http.MethodGet, env.baseURL+"/v1/users/me", nil)
 	defer meRes.Body.Close()
@@ -402,7 +468,9 @@ func TestSnippetsEndpoints(t *testing.T) {
 		Tags:       []string{"dev"},
 		Visibility: snippets.VisibilityPublic,
 	}
-	res = doJSON(t, client, http.MethodPost, env.baseURL+"/v1/snippets", createReq)
+	res = doJSONWithHeaders(t, client, http.MethodPost, env.baseURL+"/v1/snippets", createReq, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create snippet status: %d", res.StatusCode)
@@ -443,7 +511,9 @@ func TestSnippetsEndpoints(t *testing.T) {
 		Tags:       []string{"dev", "updated"},
 		Visibility: snippets.VisibilityPublic,
 	}
-	res = doJSON(t, client, http.MethodPut, env.baseURL+"/v1/snippets/"+newSnippet.ID, updateReq)
+	res = doJSONWithHeaders(t, client, http.MethodPut, env.baseURL+"/v1/snippets/"+newSnippet.ID, updateReq, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("update snippet status: %d", res.StatusCode)
@@ -463,7 +533,9 @@ func TestSnippetsEndpoints(t *testing.T) {
 		Language:   "txt",
 		Visibility: snippets.VisibilityPrivate,
 	}
-	res = doJSON(t, client, http.MethodPost, env.baseURL+"/v1/snippets", privateReq)
+	res = doJSONWithHeaders(t, client, http.MethodPost, env.baseURL+"/v1/snippets", privateReq, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("create private snippet status: %d", res.StatusCode)
@@ -480,14 +552,18 @@ func TestSnippetsEndpoints(t *testing.T) {
 		t.Fatalf("private snippets list status: %d", res.StatusCode)
 	}
 
-	res = doJSON(t, client, http.MethodDelete, env.baseURL+"/v1/snippets/"+newSnippet.ID, nil)
+	res = doJSONWithHeaders(t, client, http.MethodDelete, env.baseURL+"/v1/snippets/"+newSnippet.ID, nil, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNoContent {
 		t.Fatalf("delete snippet status: %d", res.StatusCode)
 	}
 
 	if privateSnippet.ID != "" {
-		res = doJSON(t, client, http.MethodDelete, env.baseURL+"/v1/snippets/"+privateSnippet.ID, nil)
+		res = doJSONWithHeaders(t, client, http.MethodDelete, env.baseURL+"/v1/snippets/"+privateSnippet.ID, nil, map[string]string{
+			"X-CSRF-Token": csrf,
+		})
 		_ = res.Body.Close()
 		if res.StatusCode != http.StatusNoContent {
 			t.Fatalf("delete private snippet status: %d", res.StatusCode)
@@ -498,5 +574,77 @@ func TestSnippetsEndpoints(t *testing.T) {
 	_ = res.Body.Close()
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("get deleted snippet status: %d", res.StatusCode)
+	}
+}
+
+func TestAPIKeysAuth(t *testing.T) {
+	env := newTestEnv(t)
+	client := newClient(t)
+
+	email := fmt.Sprintf("ci_%s@local", internal.RandomHex(6))
+	password := "secret123"
+	created := createUser(t, client, env.baseURL, email, password)
+	t.Cleanup(func() { _ = env.users.Delete(context.Background(), created.ID) })
+
+	csrf := login(t, client, env.baseURL, email, password)
+
+	readKey := createAPIKey(t, client, env.baseURL, csrf, "read-key", "read")
+
+	res := doJSONWithHeaders(t, client, http.MethodGet, env.baseURL+"/v1/snippets", nil, map[string]string{
+		"X-API-Key": readKey.Token,
+	})
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("api key read list status: %d", res.StatusCode)
+	}
+
+	createReq := snippets.CreateSnippetRequest{
+		Name:       "Denied",
+		Content:    "x",
+		Language:   "txt",
+		Visibility: snippets.VisibilityPrivate,
+	}
+	res = doJSONWithHeaders(t, client, http.MethodPost, env.baseURL+"/v1/snippets", createReq, map[string]string{
+		"X-API-Key": readKey.Token,
+	})
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("api key read create status: %d", res.StatusCode)
+	}
+
+	writeKey := createAPIKey(t, client, env.baseURL, csrf, "rw-key", "read_write")
+	createReq = snippets.CreateSnippetRequest{
+		Name:       "Allowed",
+		Content:    "print('ok')",
+		Language:   "python",
+		Visibility: snippets.VisibilityPublic,
+	}
+	res = doJSONWithHeaders(t, client, http.MethodPost, env.baseURL+"/v1/snippets", createReq, map[string]string{
+		"X-API-Key": writeKey.Token,
+	})
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("api key write create status: %d", res.StatusCode)
+	}
+
+	var createdSnippet snippets.Snippet
+	if err := json.NewDecoder(res.Body).Decode(&createdSnippet); err != nil {
+		t.Fatalf("decode snippet: %v", err)
+	}
+
+	res = doJSONWithHeaders(t, client, http.MethodDelete, env.baseURL+"/v1/auth/api-keys/"+writeKey.ID, nil, map[string]string{
+		"X-CSRF-Token": csrf,
+	})
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("revoke api key status: %d", res.StatusCode)
+	}
+
+	res = doJSONWithHeaders(t, client, http.MethodGet, env.baseURL+"/v1/snippets/"+createdSnippet.ID, nil, map[string]string{
+		"X-API-Key": writeKey.Token,
+	})
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("revoked api key status: %d", res.StatusCode)
 	}
 }

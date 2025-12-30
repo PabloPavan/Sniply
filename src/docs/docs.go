@@ -15,6 +15,147 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/api-keys": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "List API keys",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/httpapi.APIKeyResponse"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Create API key",
+                "parameters": [
+                    {
+                        "description": "api key",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIKeyCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.APIKeyCreateResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/api-keys/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Revoke API key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "api key id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "consumes": [
@@ -115,6 +256,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "produces": [
@@ -208,6 +352,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "consumes": [
@@ -270,6 +417,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "produces": [
@@ -319,6 +469,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "consumes": [
@@ -380,6 +533,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "tags": [
@@ -431,6 +587,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "produces": [
@@ -545,6 +704,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "produces": [
@@ -585,6 +747,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "consumes": [
@@ -639,6 +804,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "tags": [
@@ -675,6 +843,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "consumes": [
@@ -736,6 +907,9 @@ const docTemplate = `{
                 "security": [
                     {
                         "SessionAuth": []
+                    },
+                    {
+                        "ApiKeyAuth": []
                     }
                 ],
                 "tags": [
@@ -790,6 +964,63 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "httpapi.APIKeyCreateRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.APIKeyCreateResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.APIKeyResponse": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "revoked_at": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "token_prefix": {
+                    "type": "string"
+                }
+            }
+        },
         "httpapi.LoginRequest": {
             "type": "object",
             "properties": {
@@ -804,6 +1035,9 @@ const docTemplate = `{
         "httpapi.LoginResponse": {
             "type": "object",
             "properties": {
+                "csrf_token": {
+                    "type": "string"
+                },
                 "session_expires_at": {
                     "description": "RFC3339",
                     "type": "string"
@@ -934,6 +1168,12 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
+        "ApiKeyAuth": {
+            "description": "API key (X-API-Key or Authorization: Bearer)",
+            "type": "apiKey",
+            "name": "X-API-Key",
+            "in": "header"
+        },
         "SessionAuth": {
             "description": "HttpOnly session cookie",
             "type": "apiKey",
