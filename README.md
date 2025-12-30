@@ -27,6 +27,7 @@ At runtime, all traffic flows through Traefik (TLS + routing), the API talks to 
 ## Key Features
 
 * Session‑based authentication (HttpOnly cookies)
+* API keys with scoped access (`read`, `write`, `read_write`)
 * User management (signup, login, profile management)
 * Full CRUD for snippets
 * Snippet visibility control (`public` / `private`)
@@ -173,6 +174,14 @@ POST /v1/auth/logout
 Clears the session cookie.
 
 ---
+
+#### API Keys (session only)
+
+| Method | Endpoint                 | Description              |
+| ------ | ------------------------ | ------------------------ |
+| POST   | `/v1/auth/api-keys`      | Create API key           |
+| GET    | `/v1/auth/api-keys`      | List API keys            |
+| DELETE | `/v1/auth/api-keys/{id}` | Revoke API key           |
 
 ## Users
 

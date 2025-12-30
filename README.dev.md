@@ -572,6 +572,16 @@ For state-changing requests with the session cookie, include `X-CSRF-Token` (fro
 curl -v -X POST http://localhost:8080/v1/auth/api-keys   -H 'Content-Type: application/json'   -H 'X-CSRF-Token: <csrf_token>'   -b cookies.txt   -d '{"name":"ci","scope":"read_write"}'
 ```
 
+# Auth: list API keys (session)
+```bash
+curl -v http://localhost:8080/v1/auth/api-keys   -b cookies.txt
+```
+
+# Auth: revoke API key (session + CSRF)
+```bash
+curl -v -X DELETE http://localhost:8080/v1/auth/api-keys/key_...   -H 'X-CSRF-Token: <csrf_token>'   -b cookies.txt
+```
+
 # Use API key (no CSRF required)
 ```bash
 curl -v http://localhost:8080/v1/snippets   -H 'X-API-Key: sk_...'
