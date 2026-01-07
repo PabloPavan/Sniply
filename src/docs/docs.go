@@ -76,7 +76,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.APIKeyCreateRequest"
+                            "$ref": "#/definitions/apikeys.CreateInput"
                         }
                     },
                     {
@@ -796,7 +796,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.UserUpdateRequest"
+                            "$ref": "#/definitions/users.UpdateUserInput"
                         }
                     },
                     {
@@ -913,7 +913,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.UserUpdateRequest"
+                            "$ref": "#/definitions/users.UpdateUserInput"
                         }
                     },
                     {
@@ -1020,7 +1020,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "httpapi.APIKeyCreateRequest": {
+        "apikeys.CreateInput": {
             "type": "object",
             "properties": {
                 "name": {
@@ -1096,20 +1096,6 @@ const docTemplate = `{
                 },
                 "session_expires_at": {
                     "description": "RFC3339",
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.UserUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "role": {
                     "type": "string"
                 }
             }
@@ -1190,6 +1176,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.UpdateUserInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
                     "type": "string"
                 }
             }

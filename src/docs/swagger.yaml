@@ -1,6 +1,6 @@
 basePath: /v1
 definitions:
-  httpapi.APIKeyCreateRequest:
+  apikeys.CreateInput:
     properties:
       name:
         type: string
@@ -50,15 +50,6 @@ definitions:
         type: string
       session_expires_at:
         description: RFC3339
-        type: string
-    type: object
-  httpapi.UserUpdateRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-      role:
         type: string
     type: object
   snippets.CreateSnippetRequest:
@@ -112,6 +103,15 @@ definitions:
       email:
         type: string
       password:
+        type: string
+    type: object
+  users.UpdateUserInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      role:
         type: string
     type: object
   users.UserResponse:
@@ -172,7 +172,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/httpapi.APIKeyCreateRequest'
+          $ref: '#/definitions/apikeys.CreateInput'
       - description: CSRF token (required for SessionAuth)
         in: header
         name: X-CSRF-Token
@@ -643,7 +643,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/httpapi.UserUpdateRequest'
+          $ref: '#/definitions/users.UpdateUserInput'
       - description: CSRF token (required for SessionAuth)
         in: header
         name: X-CSRF-Token
@@ -736,7 +736,7 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/httpapi.UserUpdateRequest'
+          $ref: '#/definitions/users.UpdateUserInput'
       - description: CSRF token (required for SessionAuth)
         in: header
         name: X-CSRF-Token

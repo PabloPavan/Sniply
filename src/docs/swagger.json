@@ -69,7 +69,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.APIKeyCreateRequest"
+                            "$ref": "#/definitions/apikeys.CreateInput"
                         }
                     },
                     {
@@ -789,7 +789,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.UserUpdateRequest"
+                            "$ref": "#/definitions/users.UpdateUserInput"
                         }
                     },
                     {
@@ -906,7 +906,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/httpapi.UserUpdateRequest"
+                            "$ref": "#/definitions/users.UpdateUserInput"
                         }
                     },
                     {
@@ -1013,7 +1013,7 @@
         }
     },
     "definitions": {
-        "httpapi.APIKeyCreateRequest": {
+        "apikeys.CreateInput": {
             "type": "object",
             "properties": {
                 "name": {
@@ -1089,20 +1089,6 @@
                 },
                 "session_expires_at": {
                     "description": "RFC3339",
-                    "type": "string"
-                }
-            }
-        },
-        "httpapi.UserUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "role": {
                     "type": "string"
                 }
             }
@@ -1183,6 +1169,20 @@
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "users.UpdateUserInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "role": {
                     "type": "string"
                 }
             }
