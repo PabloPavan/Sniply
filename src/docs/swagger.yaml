@@ -56,6 +56,11 @@ definitions:
         description: RFC3339
         type: string
     type: object
+  httpapi.CSRFResponse:
+    properties:
+      csrf_token:
+        type: string
+    type: object
   httpapi.SnippetCreateDTO:
     properties:
       content:
@@ -300,6 +305,28 @@ paths:
           schema:
             type: string
       summary: Logout
+      tags:
+      - auth
+  /auth/csrf:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/httpapi.CSRFResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      security:
+      - SessionAuth: []
+      summary: Get CSRF token
       tags:
       - auth
   /health:

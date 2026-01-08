@@ -241,6 +241,42 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/csrf": {
+            "get": {
+                "security": [
+                    {
+                        "SessionAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Get CSRF token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/httpapi.CSRFResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/health": {
             "get": {
                 "produces": [
@@ -1101,6 +1137,14 @@ const docTemplate = `{
                 },
                 "session_expires_at": {
                     "description": "RFC3339",
+                    "type": "string"
+                }
+            }
+        },
+        "httpapi.CSRFResponse": {
+            "type": "object",
+            "properties": {
+                "csrf_token": {
                     "type": "string"
                 }
             }

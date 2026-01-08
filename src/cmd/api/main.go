@@ -75,6 +75,13 @@ func main() {
 		Secure:   cookieSecure,
 		SameSite: cookieSameSite,
 	}
+	csrfCookie := session.CSRFCookieConfig{
+		Name:     internal.Env("SESSION_CSRF_COOKIE_NAME", "sniply_csrf"),
+		Path:     cookie.Path,
+		Domain:   cookie.Domain,
+		Secure:   cookie.Secure,
+		SameSite: cookie.SameSite,
+	}
 
 	loginLimit := parseIntEnv("LOGIN_RATE_LIMIT", 5)
 	loginWindow := parseDurationEnv("LOGIN_RATE_WINDOW", time.Minute)
@@ -113,8 +120,10 @@ func main() {
 		},
 		Users: &httpapi.UsersHandler{Service: usersService},
 		Auth: &httpapi.AuthHandler{
-			Service: authService,
-			Cookie:  cookie,
+			Service:       authService,
+			Authenticator: authService,
+			Cookie:        cookie,
+			CSRFCookie:    csrfCookie,
 		},
 		APIKeys:       &httpapi.APIKeysHandler{Service: apiKeysService},
 		Authenticator: authService,

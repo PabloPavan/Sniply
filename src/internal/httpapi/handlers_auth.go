@@ -19,8 +19,10 @@ type AuthService interface {
 }
 
 type AuthHandler struct {
-	Service AuthService
-	Cookie  session.CookieConfig
+	Service       AuthService
+	Authenticator Authenticator
+	Cookie        session.CookieConfig
+	CSRFCookie    session.CSRFCookieConfig
 }
 
 type LoginRequest struct {
@@ -31,6 +33,10 @@ type LoginRequest struct {
 type LoginResponse struct {
 	SessionExpiresAt string `json:"session_expires_at"` // RFC3339
 	CSRFToken        string `json:"csrf_token"`
+}
+
+type CSRFResponse struct {
+	CSRFToken string `json:"csrf_token"`
 }
 
 // Login Auth
@@ -68,6 +74,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.Cookie.Write(w, result.Session.ID, result.Session.ExpiresAt)
+	h.CSRFCookie.Write(w, result.Session.CSRFToken, result.Session.ExpiresAt)
 
 	resp := LoginResponse{
 		SessionExpiresAt: result.Session.ExpiresAt.UTC().Format(time.RFC3339),
@@ -97,10 +104,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := h.Cookie.Name
-	if name == "" {
-		name = "sniply_session"
-	}
+	name := session.SessionCookieName(h.Cookie.Name)
 
 	cookie, err := r.Cookie(name)
 	if err == nil && cookie.Value != "" {
@@ -111,7 +115,45 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.Cookie.Clear(w)
+	h.CSRFCookie.Clear(w)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// CSRF Token
+// @Summary Get CSRF token
+// @Tags auth
+// @Produce json
+// @Security SessionAuth
+// @Success 200 {object} CSRFResponse
+// @Failure 401 {string} string
+// @Failure 500 {string} string
+// @Router /auth/csrf [get]
+func (h *AuthHandler) CSRFToken(w http.ResponseWriter, r *http.Request) {
+	if h.Authenticator == nil {
+		http.Error(w, "auth not configured", http.StatusInternalServerError)
+		return
+	}
+
+	name := session.SessionCookieName(h.Cookie.Name)
+	sessionID := ""
+	if reqCookie, err := r.Cookie(name); err == nil {
+		sessionID = reqCookie.Value
+	}
+
+	sess, refreshed, err := h.Authenticator.AuthenticateSession(r.Context(), sessionID, "", r.Method)
+	if err != nil {
+		writeAppError(w, err)
+		return
+	}
+
+	if refreshed {
+		h.Cookie.Write(w, sess.ID, sess.ExpiresAt)
+	}
+	h.CSRFCookie.Write(w, sess.CSRFToken, sess.ExpiresAt)
+
+	resp := CSRFResponse{CSRFToken: sess.CSRFToken}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 func clientIP(r *http.Request) string {

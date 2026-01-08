@@ -60,6 +60,13 @@ func newTestEnv(t *testing.T) *testEnv {
 		Name: "sniply_session",
 		Path: "/",
 	}
+	csfrCfg := session.CSRFCookieConfig{
+		Name:     "sniply_csrf",
+		Path:     cookieCfg.Path,
+		Domain:   cookieCfg.Domain,
+		Secure:   cookieCfg.Secure,
+		SameSite: cookieCfg.SameSite,
+	}
 
 	usersService := &users.Service{Store: usrRepo}
 	snippetsService := &snippets.Service{Store: snRepo, Users: usrRepo}
@@ -75,8 +82,10 @@ func newTestEnv(t *testing.T) *testEnv {
 		Snippets: &httpapi.SnippetsHandler{Service: snippetsService},
 		Users:    &httpapi.UsersHandler{Service: usersService},
 		Auth: &httpapi.AuthHandler{
-			Service: authService,
-			Cookie:  cookieCfg,
+			Service:       authService,
+			Authenticator: authService,
+			Cookie:        cookieCfg,
+			CSRFCookie:    csfrCfg,
 		},
 		APIKeys:       &httpapi.APIKeysHandler{Service: apiKeysService},
 		Authenticator: authService,

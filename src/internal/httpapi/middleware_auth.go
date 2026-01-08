@@ -19,6 +19,7 @@ type AuthOptions struct {
 	AllowAPIKey  bool
 	AllowSession bool
 	Cookie       session.CookieConfig
+	CSRFCookie   session.CSRFCookieConfig
 }
 
 func AuthMiddleware(authenticator Authenticator, opts AuthOptions) func(http.Handler) http.Handler {
@@ -48,10 +49,7 @@ func AuthMiddleware(authenticator Authenticator, opts AuthOptions) func(http.Han
 				return
 			}
 
-			name := opts.Cookie.Name
-			if name == "" {
-				name = "sniply_session"
-			}
+			name := session.SessionCookieName(opts.Cookie.Name)
 
 			sessionID := ""
 			if reqCookie, err := r.Cookie(name); err == nil {
@@ -59,6 +57,18 @@ func AuthMiddleware(authenticator Authenticator, opts AuthOptions) func(http.Han
 			}
 
 			csrfToken := r.Header.Get("X-CSRF-Token")
+			csrfCookie := ""
+			if c, err := r.Cookie(session.CSRFCookieName(opts.CSRFCookie.Name)); err == nil {
+				csrfCookie = c.Value
+			}
+
+			if requiresCSRFToken(r.Method) {
+				if csrfToken == "" || csrfCookie == "" || csrfToken != csrfCookie {
+					http.Error(w, "forbidden", http.StatusForbidden)
+					return
+				}
+			}
+
 			sess, refreshed, err := authenticator.AuthenticateSession(r.Context(), sessionID, csrfToken, r.Method)
 			if err != nil {
 				writeAppError(w, err)
@@ -67,6 +77,9 @@ func AuthMiddleware(authenticator Authenticator, opts AuthOptions) func(http.Han
 
 			if refreshed {
 				opts.Cookie.Write(w, sess.ID, sess.ExpiresAt)
+			}
+			if csrfCookie != sess.CSRFToken || refreshed {
+				opts.CSRFCookie.Write(w, sess.CSRFToken, sess.ExpiresAt)
 			}
 
 			ctx := identity.WithUser(r.Context(), sess.UserID, sess.Role)

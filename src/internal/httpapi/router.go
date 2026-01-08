@@ -41,12 +41,14 @@ func NewRouter(app *App) http.Handler {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", app.Auth.Login)
 			r.Post("/logout", app.Auth.Logout)
+			r.Get("/csrf", app.Auth.CSRFToken)
 
 			r.Group(func(r chi.Router) {
 				r.Use(AuthMiddleware(app.Authenticator, AuthOptions{
 					AllowSession: true,
 					AllowAPIKey:  false,
 					Cookie:       app.Auth.Cookie,
+					CSRFCookie:   app.Auth.CSRFCookie,
 				}))
 				r.Post("/api-keys", app.APIKeys.Create)
 				r.Get("/api-keys", app.APIKeys.List)
@@ -61,6 +63,7 @@ func NewRouter(app *App) http.Handler {
 					AllowSession: true,
 					AllowAPIKey:  true,
 					Cookie:       app.Auth.Cookie,
+					CSRFCookie:   app.Auth.CSRFCookie,
 				}))
 				r.Post("/", app.Snippets.Create)
 				r.Get("/", app.Snippets.List)
@@ -80,6 +83,7 @@ func NewRouter(app *App) http.Handler {
 					AllowSession: true,
 					AllowAPIKey:  true,
 					Cookie:       app.Auth.Cookie,
+					CSRFCookie:   app.Auth.CSRFCookie,
 				}))
 
 				// Self endpoints
