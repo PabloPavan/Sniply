@@ -4,6 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/PabloPavan/sniply_api/internal"
@@ -24,7 +27,8 @@ func main() {
 	databaseURL := internal.MustEnv("DATABASE_URL")
 	redisURL := internal.MustEnv("REDIS_URL")
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	shutdown := telemetry.InitTracer("sniply-api")
 	defer shutdown(context.Background())
@@ -134,7 +138,29 @@ func main() {
 	}
 
 	log.Printf("api listening on :%s", port)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("server error: %v", err)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		if err != nil && err != http.ErrServerClosed {
+			log.Printf("server error: %v", err)
+		}
+	case <-ctx.Done():
+		log.Printf("shutdown signal received")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("server shutdown error: %v", err)
+			_ = srv.Close()
+		}
+		select {
+		case <-errCh:
+		case <-time.After(5 * time.Second):
+			log.Printf("server shutdown timeout")
+		}
 	}
 }
